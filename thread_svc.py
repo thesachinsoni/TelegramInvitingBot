@@ -239,7 +239,9 @@ def invite_contact(task_id):
         target = int(task.target_group) if task.target_group.startswith('-') \
             else task.target_group.lower()
         client(JoinChannelRequest(target))
-        client(InviteToChannelRequest(target, [int(contacts[0].tg_id)]))
+        contact = int(contacts[0].tg_id) if contacts[0].username == None \
+            else contacts[0].username
+        client(InviteToChannelRequest(target, [contact]))
         task.invited_contacts.append(contacts[0])
         account.last_used = datetime.datetime.now()
         session.commit()
