@@ -92,12 +92,17 @@ def register_accounts(limit):
                               f'Failed: {fails_count}')
 
 
-def scrape_contacts(group_link):
-    free_accounts = session.query(TelegramAccount).filter(
-        TelegramAccount.active == True,
-        TelegramAccount.task == None
-    ).all()
-    account = random.choice(free_accounts)
+def scrape_contacts(group_link, phone_number=None):
+    if phone_number is None:
+        free_accounts = session.query(TelegramAccount).filter(
+            TelegramAccount.active == True,
+            TelegramAccount.task == None
+        ).all()
+        account = random.choice(free_accounts)
+    else:
+        account = session.query(TelegramAccount).filter(
+            TelegramAccount.phone_number == phone_number,
+        ).first()
     client = TelegramClient(os.path.join(config.TELETHON_SESSIONS_DIR, account.phone_number),
                             config.TELEGRAM_API_ID, config.TELEGRAM_API_HASH,
                             proxy=(socks.SOCKS5, 'localhost', 9050))
@@ -127,8 +132,8 @@ def scrape_contacts(group_link):
     session.commit()
     for adm in config.ADMIN_IDS:
         bot.send_message(adm, f'Scrapped {len(filtered_participants)} from {group.title}.\n'
-                                f'Skipped {abs(len(filtered_participants)-len(participants))} '
-                                f'admins and bots.')
+                              f'Skipped {abs(len(filtered_participants)-len(participants))} '
+                              f'admins and bots.')
 
 
 def perform_tasks():

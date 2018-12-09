@@ -19,7 +19,8 @@ dispatcher = updater.dispatcher
 # Conversation states
 SET_SOURCE_GROUP, SET_TARGET_GROUP, SET_INVITES_LIMIT, SET_INTERVAL, \
     SET_ACCOUNTS_AMOUNT, SELECT_TASK, TASK_MENU, EDIT_INTERVAL, LOGIN_CODE, SELECT_ACCOUNT, \
-    SET_CUSTOM_INTERVAL, SELECT_GROUP, SET_CUSTOM_INVITES_LIMIT, SET_CUSTOM_TARGET_GROUP = range(14)
+    SET_CUSTOM_INTERVAL, SELECT_GROUP, SET_CUSTOM_INVITES_LIMIT, SET_CUSTOM_TARGET_GROUP, \
+    SELECT_GROUP_FOR_SCRAPPING = range(15)
 
 
 def start(bot, update):
@@ -531,6 +532,93 @@ def custom_invites_limit(bot, update, user_data):
         return SET_CUSTOM_INVITES_LIMIT
 
 
+@restricted
+def custom_scrape(bot, update, args, user_data):
+    if len(args) == 1:
+        phone_number = args[0]
+        user_data['phone_number'] = phone_number
+        client = TelegramClient(os.path.join(config.TELETHON_SESSIONS_DIR, phone_number),
+                                config.TELEGRAM_API_ID, config.TELEGRAM_API_HASH,
+                                proxy=(socks.SOCKS5, 'localhost', 9050))
+        client.connect()
+        try:
+            dialogs = client.get_dialogs()
+        except Exception as e:
+            update.message.reply_text('Error happened. Can\'t get groups.')
+            config.logger.exception(e)
+            return ConversationHandler.END
+        client.disconnect()
+        groups = [{'id': i.id, 'title': i.title}
+                  for i in dialogs if i.is_group]
+        user_data['groups'] = groups
+        if groups:
+            buttons = [InlineKeyboardButton(g['title'], callback_data=g['id'])
+                       for g in groups]
+            if len(buttons) > 6:
+                buttons = [buttons[i:i + 6] for i in range(0, len(buttons), 6)]
+                next_page_btn = InlineKeyboardButton('➡️', callback_data='next_page:1')
+                buttons[0].append(next_page_btn)
+                reply_markup = InlineKeyboardMarkup(build_menu(buttons[0], n_cols=2))
+            else:
+                reply_markup = InlineKeyboardMarkup(build_menu(buttons, n_cols=2))
+            user_data['page'] = 0
+            bot.send_message(chat_id=update.message.chat_id,
+                             text='Please, choose a group to scrape users from.',
+                             parse_mode=ParseMode.MARKDOWN,
+                             reply_markup=reply_markup,
+                             timeout=30)
+            return SELECT_GROUP_FOR_SCRAPPING
+    else:
+        update.message.reply_text("Please, include phone number of the account that "
+                                  "you've added to the"
+                                  "command, like in the example:\n"
+                                  "<code>/custom_scrape +123456789</code>",
+                                  parse_mode=ParseMode.HTML)
+
+
+@restricted
+def select_group_for_scrapping(bot, update, user_data):
+    query = update.callback_query
+
+    if query.data.startswith('next_page') or query.data.startswith('prev_page'):
+        buttons = [InlineKeyboardButton(g['title'], callback_data=g['id'])
+                   for g in user_data['groups']]
+        buttons = [buttons[i:i + 6] for i in range(0, len(buttons), 6)]
+
+        if query.data.startswith('next_page'):
+            go_to_page = int(query.data.split(':')[1])
+        else:
+            go_to_page = int(query.data.split(':')[1])
+
+        user_data['page'] = go_to_page
+
+        if go_to_page > 0:
+            prev_page_btn = InlineKeyboardButton(
+                '⬅️', callback_data='prev_page:{}'.format(go_to_page - 1)
+            )
+            buttons[go_to_page].append(prev_page_btn)
+        if go_to_page < len(buttons) - 1:
+            next_page_btn = InlineKeyboardButton(
+                '➡️', callback_data='next_page:{}'.format(go_to_page + 1)
+            )
+            buttons[go_to_page].append(next_page_btn)
+
+        user_data['page'] = go_to_page
+
+        reply_markup = InlineKeyboardMarkup(build_menu(buttons[go_to_page],
+                                                       n_cols=2))
+
+        bot.edit_message_reply_markup(chat_id=query.message.chat_id,
+                                      message_id=query.message.message_id,
+                                      reply_markup=reply_markup,
+                                      timeout=30)
+        return SELECT_GROUP_FOR_SCRAPPING
+    else:
+        run_threaded(scrape_contacts, (query.data, user_data['phone_number']))
+        update.message.reply_text("Scrapping started. Please, wait.")
+        return ConversationHandler.END
+
+
 new_task_handler = ConversationHandler(
     entry_points=[CommandHandler('invite', invite)],
     states={
@@ -577,6 +665,16 @@ new_tg_account_handler = ConversationHandler(
     fallbacks=[CommandHandler('cancel', cancel)]
 )
 
+custom_scrape_handler = ConversationHandler(
+    entry_points=[CommandHandler('custom_scrape', custom_scrape,
+                                 pass_args=True, pass_user_data=True)],
+    states={
+        SELECT_GROUP_FOR_SCRAPPING: [CallbackQueryHandler(select_group_for_scrapping,
+                                                          pass_user_data=True)]
+    },
+    fallbacks=[CommandHandler('cancel', cancel)]
+)
+
 
 dispatcher.add_handler(CommandHandler('start', start))
 dispatcher.add_handler(CommandHandler('scrape', scrape, pass_args=True))
@@ -585,4 +683,5 @@ dispatcher.add_handler(new_task_handler)
 dispatcher.add_handler(edit_tasks_handler)
 dispatcher.add_handler(new_tg_account_handler)
 dispatcher.add_handler(custom_new_task_handler)
+dispatcher.add_handler(custom_scrape_handler)
 dispatcher.add_error_handler(error_callback)
