@@ -10,7 +10,8 @@ from telethon import TelegramClient
 from telethon.tl.functions.channels import JoinChannelRequest, InviteToChannelRequest
 from telethon.tl.types import ChannelParticipantsAdmins
 from telethon.errors import AuthKeyUnregisteredError, UserBannedInChannelError, PeerFloodError, \
-    UserChannelsTooMuchError, ChatWriteForbiddenError, UserDeactivatedError, ChannelPrivateError
+    UserChannelsTooMuchError, ChatWriteForbiddenError, UserDeactivatedError, ChannelPrivateError, \
+    PhoneNumberOccupiedError
 from telegram import Bot
 from sqlalchemy import desc
 
@@ -74,7 +75,16 @@ def register_accounts(limit):
 
             try:
                 name = get_random_first_last_names()
-                myself = client.sign_up(sms, first_name=name['first'], last_name=name['last'])
+                myself = None
+                try:
+                    myself = client.sign_up(sms, first_name=name['first'], last_name=name['last'])
+                except PhoneNumberOccupiedError:
+                    config.logger.error('PhoneNumberOccupiedError, trying to login instead.')
+                    try:
+                        myself = client.sign_in('+'+str(number), sms)
+                    except Exception as e:
+                        config.logger.exception(e)
+                        fails_count += 1
                 if myself:
                     registered_count += 1
                 client.disconnect()
