@@ -18,9 +18,8 @@ dispatcher = updater.dispatcher
 
 # Conversation states
 SET_SOURCE_GROUP, SET_TARGET_GROUP, SET_INVITES_LIMIT, SET_INTERVAL, \
-    SET_ACCOUNTS_AMOUNT, SELECT_TASK, TASK_MENU, EDIT_INTERVAL, LOGIN_CODE, SELECT_ACCOUNT, \
-    SET_CUSTOM_INTERVAL, SELECT_GROUP, SET_CUSTOM_INVITES_LIMIT, SET_CUSTOM_TARGET_GROUP, \
-    SELECT_GROUP_FOR_SCRAPPING = range(15)
+    SET_ACCOUNTS_AMOUNT, SELECT_TASK, TASK_MENU, EDIT_INTERVAL, LOGIN_CODE, \
+    SELECT_GROUP_FOR_SCRAPPING = range(10)
 
 
 def start(bot, update):
@@ -102,7 +101,11 @@ def invites_limit(bot, update, user_data):
 def interval(bot, update, user_data):
     if update.message.text.isdigit():
         user_data['interval'] = int(update.message.text)
-        update.message.reply_text("Send me the amount of accounts for this task.")
+        free_accounts = session.query(TelegramAccount).filter(
+            TelegramAccount.task == None
+        ).all()
+        update.message.reply_text("Send me the amount of accounts for this task.\n"
+                                  "Available accounts: {}".format(len(free_accounts)))
         return SET_ACCOUNTS_AMOUNT
     else:
         update.message.reply_text("Interval must be integer. Send me a valid interval.")
@@ -333,206 +336,6 @@ def confirm_tg_account(bot, update, user_data):
 
 
 @restricted
-def custom_inviting(bot, update):
-    accounts = session.query(TelegramAccount).filter(
-        TelegramAccount.active == True,
-        TelegramAccount.task == None
-    ).order_by(TelegramAccount.created_at).all()
-    if accounts:
-        buttons = [InlineKeyboardButton(s.phone_number, callback_data=s.id)
-                   for s in accounts]
-        if len(buttons) > 6:
-            buttons = [buttons[i:i + 6] for i in range(0, len(buttons), 6)]
-            next_page_btn = InlineKeyboardButton('➡️', callback_data='next_page:1')
-            buttons[0].append(next_page_btn)
-            reply_markup = InlineKeyboardMarkup(build_menu(buttons[0], n_cols=2))
-        else:
-            reply_markup = InlineKeyboardMarkup(build_menu(buttons, n_cols=2))
-        bot.send_message(chat_id=update.message.chat_id,
-                         text='Please, choose the account or /cancel',
-                         reply_markup=reply_markup,
-                         timeout=30)
-        return SELECT_ACCOUNT
-    else:
-        update.message.reply_text('You don\'t have any active accounts yet. '
-                                  'Please, /register or /add_account at first.')
-        return ConversationHandler.END
-
-
-@restricted
-def select_account(bot, update, user_data):
-    query = update.callback_query
-
-    if query.data.startswith('next_page') or query.data.startswith('prev_page'):
-        accounts = session.query(TelegramAccount).filter(
-            TelegramAccount.active == True,
-            TelegramAccount.task == None
-        ).order_by(TelegramAccount.created_at).all()
-        buttons = [InlineKeyboardButton(s.phone_number, callback_data=s.id)
-                   for s in accounts]
-        buttons = [buttons[i:i + 6] for i in range(0, len(buttons), 6)]
-
-        if query.data.startswith('next_page'):
-            go_to_page = int(query.data.split(':')[1])
-
-        else:
-            go_to_page = int(query.data.split(':')[1])
-
-        if go_to_page > 0:
-            prev_page_btn = InlineKeyboardButton(
-                '⬅️', callback_data='prev_page:{}'.format(go_to_page - 1)
-            )
-            buttons[go_to_page].append(prev_page_btn)
-        if go_to_page < len(buttons) - 1:
-            next_page_btn = InlineKeyboardButton(
-                '➡️', callback_data='next_page:{}'.format(go_to_page + 1)
-            )
-            buttons[go_to_page].append(next_page_btn)
-
-        reply_markup = InlineKeyboardMarkup(build_menu(buttons[go_to_page],
-                                                       n_cols=2))
-
-        bot.edit_message_reply_markup(chat_id=query.message.chat_id,
-                                      message_id=query.message.message_id,
-                                      reply_markup=reply_markup,
-                                      timeout=30)
-
-        return SELECT_ACCOUNT
-
-    else:
-        account = session.query(TelegramAccount).filter(
-            TelegramAccount.id == int(query.data),
-        ).first()
-        user_data['account_id'] = account.id
-        user_data['phone_number'] = account.phone_number
-        bot.edit_message_text(chat_id=query.message.chat_id,
-                              message_id=query.message.message_id,
-                              text='Great! Now send me the interval for inviting '
-                                   '(in minutes).',
-                              timeout=30)
-        return SET_CUSTOM_INTERVAL
-
-
-@restricted
-def custom_interval(bot, update, user_data):
-    value = update.message.text
-    if value.isdigit():
-        user_data['interval'] = interval.id
-        client = TelegramClient(os.path.join(config.TELETHON_SESSIONS_DIR, user_data['phone_number']),
-                                config.TELEGRAM_API_ID, config.TELEGRAM_API_HASH,
-                                proxy=(socks.SOCKS5, 'localhost', 9050))
-        client.connect()
-        try:
-            dialogs = client.get_dialogs()
-        except Exception as e:
-            update.message.reply_text('Error happened. Can\'t get groups.')
-            config.logger.exception(e)
-            return ConversationHandler.END
-        client.disconnect()
-        groups = [{'id': i.id, 'title': i.title}
-                  for i in dialogs if i.is_group]
-        user_data['groups'] = groups
-        if groups:
-            buttons = [InlineKeyboardButton(g['title'], callback_data=g['id'])
-                       for g in groups]
-            if len(buttons) > 6:
-                buttons = [buttons[i:i + 6] for i in range(0, len(buttons), 6)]
-                next_page_btn = InlineKeyboardButton('➡️', callback_data='next_page:1')
-                buttons[0].append(next_page_btn)
-                reply_markup = InlineKeyboardMarkup(build_menu(buttons[0], n_cols=2))
-            else:
-                reply_markup = InlineKeyboardMarkup(build_menu(buttons, n_cols=2))
-            user_data['page'] = 0
-            bot.send_message(chat_id=update.message.chat_id,
-                             text='Please, choose a group to invite users from.',
-                             parse_mode=ParseMode.MARKDOWN,
-                             reply_markup=reply_markup,
-                             timeout=30)
-            return SELECT_GROUP
-        else:
-            update.message.reply_text('This account doesn\'t have any groups. '
-                                      'Try using another account via /add_account')
-            return ConversationHandler.END
-    else:
-        update.message.reply_text('Oops! Interval has to be integer '
-                                  'value (in minutes). Send me another '
-                                  'interval.')
-        return SET_CUSTOM_INTERVAL
-
-
-@restricted
-def select_group(bot, update, user_data):
-    query = update.callback_query
-
-    if query.data.startswith('next_page') or query.data.startswith('prev_page'):
-        buttons = [InlineKeyboardButton(g['title'], callback_data=g['id'])
-                   for g in user_data['groups']]
-        buttons = [buttons[i:i + 6] for i in range(0, len(buttons), 6)]
-
-        if query.data.startswith('next_page'):
-            go_to_page = int(query.data.split(':')[1])
-        else:
-            go_to_page = int(query.data.split(':')[1])
-
-        user_data['page'] = go_to_page
-
-        if go_to_page > 0:
-            prev_page_btn = InlineKeyboardButton(
-                '⬅️', callback_data='prev_page:{}'.format(go_to_page - 1)
-            )
-            buttons[go_to_page].append(prev_page_btn)
-        if go_to_page < len(buttons) - 1:
-            next_page_btn = InlineKeyboardButton(
-                '➡️', callback_data='next_page:{}'.format(go_to_page + 1)
-            )
-            buttons[go_to_page].append(next_page_btn)
-
-        user_data['page'] = go_to_page
-
-        reply_markup = InlineKeyboardMarkup(build_menu(buttons[go_to_page],
-                                                       n_cols=2))
-
-        bot.edit_message_reply_markup(chat_id=query.message.chat_id,
-                                      message_id=query.message.message_id,
-                                      reply_markup=reply_markup,
-                                      timeout=30)
-        return SELECT_GROUP
-    else:
-        user_data['source_group'] = query.data
-        update.message.reply_text("Now send me the link to target group.")
-        return SET_CUSTOM_TARGET_GROUP
-
-
-@restricted
-def custom_target_group(bot, update, user_data):
-    user_data['target_group'] = update.message.text
-    update.message.reply_text("Send me the invites limit. Maybe, you want to invite only "
-                              "10 members of source group, maybe, 5000.")
-    return SET_CUSTOM_INVITES_LIMIT
-
-
-@restricted
-def custom_invites_limit(bot, update, user_data):
-    if update.message.text.isdigit():
-        amount = int(update.message.text)
-        account = session.query(TelegramAccount).filter(
-            TelegramAccount.id == user_data['account_id']
-        ).first()
-        task = Task(source_group=user_data['source_group'],
-                    target_group=user_data['target_group'],
-                    interval=user_data['interval'],
-                    invites_limit=amount)
-        session.add(task)
-        account.task = task
-        session.commit()
-        update.message.reply_text("Great! Inviting started.")
-        return ConversationHandler.END
-    else:
-        update.message.reply_text("Limit must be integer. Send me a valid limit.")
-        return SET_CUSTOM_INVITES_LIMIT
-
-
-@restricted
 def custom_scrape(bot, update, args, user_data):
     if len(args) == 1:
         phone_number = args[0]
@@ -615,7 +418,7 @@ def select_group_for_scrapping(bot, update, user_data):
         return SELECT_GROUP_FOR_SCRAPPING
     else:
         run_threaded(scrape_contacts, (query.data, user_data['phone_number']))
-        update.message.reply_text("Scrapping started. Please, wait.")
+        query.message.reply_text("Scrapping started. Please, wait.")
         return ConversationHandler.END
 
 
@@ -630,19 +433,6 @@ new_task_handler = ConversationHandler(
     },
     fallbacks=[CommandHandler('cancel', cancel)]
 )
-
-custom_new_task_handler = ConversationHandler(
-    entry_points=[CommandHandler('custom_invite', custom_inviting)],
-    states={
-        SELECT_ACCOUNT: [CallbackQueryHandler(select_account, pass_user_data=True)],
-        SET_CUSTOM_INTERVAL: [MessageHandler(Filters.text, custom_interval, pass_user_data=True)],
-        SELECT_GROUP: [CallbackQueryHandler(select_group, pass_user_data=True)],
-        SET_CUSTOM_TARGET_GROUP: [MessageHandler(Filters.text, custom_target_group, pass_user_data=True)],
-        SET_CUSTOM_INVITES_LIMIT: [MessageHandler(Filters.text, custom_invites_limit, pass_user_data=True)],
-    },
-    fallbacks=[CommandHandler('cancel', cancel)]
-)
-
 
 edit_tasks_handler = ConversationHandler(
     entry_points=[CommandHandler('tasks', tasks)],
@@ -682,6 +472,5 @@ dispatcher.add_handler(CommandHandler('register', register, pass_args=True))
 dispatcher.add_handler(new_task_handler)
 dispatcher.add_handler(edit_tasks_handler)
 dispatcher.add_handler(new_tg_account_handler)
-dispatcher.add_handler(custom_new_task_handler)
 dispatcher.add_handler(custom_scrape_handler)
 dispatcher.add_error_handler(error_callback)

@@ -103,37 +103,43 @@ def scrape_contacts(group_link, phone_number=None):
         account = session.query(TelegramAccount).filter(
             TelegramAccount.phone_number == phone_number,
         ).first()
-    client = TelegramClient(os.path.join(config.TELETHON_SESSIONS_DIR, account.phone_number),
-                            config.TELEGRAM_API_ID, config.TELEGRAM_API_HASH,
-                            proxy=(socks.SOCKS5, 'localhost', 9050))
-    client.connect()
-    account_id = client.get_me().id
-    group = client.get_entity(group_link)
-    participants = client.get_participants(group, aggressive=True)
-    last_messages = client.get_messages(group, 1000)
-    last_active_users_ids = set([msg.from_id for msg in last_messages])
-    if client.get_me().id not in [i.id for i in participants]:
-        client(JoinChannelRequest(group))
-    channel_admins = client.get_participants(group, filter=ChannelParticipantsAdmins)
-    admins_list = list()
-    for i in channel_admins:
-        admins_list.append(i)
-    admins_ids = [i.id for i in admins_list]
-    client.disconnect()
-    filtered_participants = [p for p in list(participants) if not p.bot and
-                             p.id not in admins_ids and
-                             p.id != account_id]
-    contacts = [Contact(tg_id=user.id, source_group=group_link, username=user.username,
-                        priority=Contact.PRIORITY_HIGH
-                        if user.id in last_active_users_ids
-                        else Contact.PRIORITY_LOW)
-                for user in filtered_participants]
-    session.add_all(contacts)
-    session.commit()
-    for adm in config.ADMIN_IDS:
-        bot.send_message(adm, f'Scrapped {len(filtered_participants)} from {group.title}.\n'
-                              f'Skipped {abs(len(filtered_participants)-len(participants))} '
-                              f'admins and bots.')
+    try:
+        client = TelegramClient(os.path.join(config.TELETHON_SESSIONS_DIR, account.phone_number),
+                                config.TELEGRAM_API_ID, config.TELEGRAM_API_HASH,
+                                proxy=(socks.SOCKS5, 'localhost', 9050))
+        client.connect()
+        if group_link.startswith('-'):
+            group_link = int(group_link)
+        account_id = client.get_me().id
+        group = client.get_entity(group_link)
+        participants = client.get_participants(group, aggressive=True)
+        last_messages = client.get_messages(group, 1000)
+        last_active_users_ids = set([msg.from_id for msg in last_messages])
+        if client.get_me().id not in [i.id for i in participants]:
+            client(JoinChannelRequest(group))
+        channel_admins = client.get_participants(group, filter=ChannelParticipantsAdmins)
+        admins_list = list()
+        for i in channel_admins:
+            admins_list.append(i)
+        admins_ids = [i.id for i in admins_list]
+        client.disconnect()
+        filtered_participants = [p for p in list(participants) if not p.bot and
+                                 p.id not in admins_ids and
+                                 p.id != account_id]
+        contacts = [Contact(tg_id=user.id, source_group=group_link, username=user.username,
+                            priority=Contact.PRIORITY_HIGH
+                            if user.id in last_active_users_ids
+                            else Contact.PRIORITY_LOW)
+                    for user in filtered_participants]
+        session.add_all(contacts)
+        session.commit()
+        for adm in config.ADMIN_IDS:
+            bot.send_message(adm, f'Scrapped {len(filtered_participants)} from {group.title}.\n'
+                                  f'Skipped {abs(len(filtered_participants)-len(participants))} '
+                                  f'admins and bots.')
+    except Exception as e:
+        for adm in config.ADMIN_IDS:
+            bot.send_message(adm, str(e))
 
 
 def perform_tasks():
