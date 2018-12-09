@@ -43,7 +43,7 @@ def start_schedule():
 def register_accounts(limit):
     registered_count = 0
     fails_count = 0
-    while registered_count+fails_count < limit:
+    while registered_count < limit:
         summary = get_summary()
         if summary is None or summary['balance'] < 0.12:
             fails_count += 1
@@ -59,7 +59,7 @@ def register_accounts(limit):
         client.send_code_request('+'+str(number), force_sms=True)
         send_code_time = datetime.datetime.now()
         sms = None
-        while (datetime.datetime.now() - send_code_time).total_seconds() < 90:
+        while (datetime.datetime.now() - send_code_time).total_seconds() < 65:
             sms = get_sms(number)
             if sms:
                 break

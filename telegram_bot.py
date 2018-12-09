@@ -5,9 +5,10 @@ from telegram.ext import (CommandHandler, Updater, MessageHandler,
                           Filters, CallbackQueryHandler, ConversationHandler)
 from telethon import TelegramClient
 import socks
+from sqlalchemy import func
 
 import config
-from models import TelegramAccount, Task
+from models import TelegramAccount, Task, Contact
 from database import session
 from telegram_svc import restricted, error_callback, build_menu
 from thread_svc import run_threaded, register_accounts, scrape_contacts
@@ -32,6 +33,17 @@ def start(bot, update):
 def cancel(bot, update):
     update.message.reply_text("Action cancelled.")
     return ConversationHandler.END
+
+
+@restricted
+def report(bot, update):
+    groups_with_counts = session.query(
+        Contact.source_group, func.count(Contact.source_group)
+    ).group_by(Contact.source_group).all()
+    text = '<b>SCRAPPED USERS:</b>\n'
+    for i in groups_with_counts:
+        text += '<code>{}</code> :  {}\n'.format(i[0], i[1])
+    update.message.reply_text(text)
 
 
 @restricted
@@ -469,6 +481,7 @@ custom_scrape_handler = ConversationHandler(
 dispatcher.add_handler(CommandHandler('start', start))
 dispatcher.add_handler(CommandHandler('scrape', scrape, pass_args=True))
 dispatcher.add_handler(CommandHandler('register', register, pass_args=True))
+dispatcher.add_handler(CommandHandler('report', report))
 dispatcher.add_handler(new_task_handler)
 dispatcher.add_handler(edit_tasks_handler)
 dispatcher.add_handler(new_tg_account_handler)
