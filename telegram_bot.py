@@ -41,9 +41,14 @@ def report(bot, update):
     groups_with_counts = session.query(
         Contact.source_group, func.count(Contact.source_group)
     ).group_by(Contact.source_group).all()
+    accounts = session.query(TelegramAccount).all()
+    active_accounts = [acc for acc in accounts if acc.active == True]
+    banned_accounts = [acc for acc in accounts if acc.active == False]
     text = '<b>SCRAPPED USERS:</b>\n'
     for i in groups_with_counts:
         text += '<code>{}</code> :  {}\n'.format(i[0], i[1])
+    text += f'\nActive accounts: {len(active_accounts)}' \
+            f'\nDisabled accounts: {len(banned_accounts)}'
     update.message.reply_text(text, parse_mode=ParseMode.HTML)
 
 
@@ -55,7 +60,7 @@ def commands(bot, update):
            '/invite - start inviting users.\n' \
            '/tasks - control active inviting processes.\n' \
            '/add_account <code>[phone_number]</code> - add new Telegram account.\n' \
-           '/report - get groups and number of users, scrapped from them.\n' \
+           '/report - get accounts info, groups and number of users, scrapped from them.\n' \
            '/custom_scrape <code>[phone_number]</code> - scrape group using specific account.'
     update.message.reply_text(text, parse_mode=ParseMode.HTML)
 
