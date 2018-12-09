@@ -52,40 +52,45 @@ def register_accounts(limit):
         if number is None:
             fails_count += 1
             continue
-        client = TelegramClient(os.path.join(config.TELETHON_SESSIONS_DIR, '+'+str(number)),
-                                config.TELEGRAM_API_ID, config.TELEGRAM_API_HASH,
-                                proxy=(socks.SOCKS5, 'localhost', 9050))
-        client.connect()
-        client.send_code_request('+'+str(number), force_sms=True)
-        send_code_time = datetime.datetime.now()
-        sms = None
-        while (datetime.datetime.now() - send_code_time).total_seconds() < 65:
-            sms = get_sms(number)
-            if sms:
-                break
-            else:
-                time.sleep(10)
-        if sms is None:
-            fails_count += 1
-            blacklist_mobile_number(number)
-            client.disconnect()
-            continue
-
         try:
-            name = get_random_first_last_names()
-            myself = client.sign_up(sms, first_name=name['first'], last_name=name['last'])
-            if myself:
-                registered_count += 1
-            client.disconnect()
+            client = TelegramClient(os.path.join(config.TELETHON_SESSIONS_DIR, '+'+str(number)),
+                                    config.TELEGRAM_API_ID, config.TELEGRAM_API_HASH,
+                                    proxy=(socks.SOCKS5, 'localhost', 9050))
+            client.connect()
+            client.send_code_request('+'+str(number), force_sms=True)
+            send_code_time = datetime.datetime.now()
+            sms = None
+            while (datetime.datetime.now() - send_code_time).total_seconds() < 65:
+                sms = get_sms(number)
+                if sms:
+                    break
+                else:
+                    time.sleep(10)
+            if sms is None:
+                fails_count += 1
+                blacklist_mobile_number(number)
+                client.disconnect()
+                continue
 
-            account = TelegramAccount(phone_number='+'+str(number))
-            session.add(account)
-            session.commit()
+            try:
+                name = get_random_first_last_names()
+                myself = client.sign_up(sms, first_name=name['first'], last_name=name['last'])
+                if myself:
+                    registered_count += 1
+                client.disconnect()
+
+                account = TelegramAccount(phone_number='+'+str(number))
+                session.add(account)
+                session.commit()
+            except Exception as e:
+                config.logger.exception(e)
+                fails_count += 1
+                client.disconnect()
+                continue
         except Exception as e:
             config.logger.exception(e)
             fails_count += 1
-            client.disconnect()
-            continue
+
     for adm in config.ADMIN_IDS:
         bot.send_message(adm, f'Registration finished.\n'
                               f'Registered: {registered_count}\n' 
@@ -222,12 +227,16 @@ def invite_contact(task_id):
         task.invited_contacts.append(contacts[0])
         account.last_used = datetime.datetime.now()
         session.commit()
-    except (PeerFloodError, UserDeactivatedError, ChatWriteForbiddenError, UserBannedInChannelError,
-            ChannelPrivateError, AuthKeyUnregisteredError, UserChannelsTooMuchError) as e:
+    except PeerFloodError as e:
         config.logger.exception(e)
         account.active = False
         account.task = None
         account.error_time = datetime.datetime.now()
+        session.commit()
+    except (UserDeactivatedError, ChatWriteForbiddenError, UserBannedInChannelError,
+            ChannelPrivateError, AuthKeyUnregisteredError, UserChannelsTooMuchError) as e:
+        config.logger.exception(e)
+        session.delete(account)
         session.commit()
     except Exception as e:
         config.logger.exception(e)
