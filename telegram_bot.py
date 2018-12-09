@@ -43,7 +43,7 @@ def report(bot, update):
     text = '<b>SCRAPPED USERS:</b>\n'
     for i in groups_with_counts:
         text += '<code>{}</code> :  {}\n'.format(i[0], i[1])
-    update.message.reply_text(text)
+    update.message.reply_text(text, parse_mode=ParseMode.HTML)
 
 
 @restricted
