@@ -249,6 +249,11 @@ def invite_contact(task_id):
         account.task = None
         account.error_time = datetime.datetime.now()
         session.commit()
+    except ValueError as e:
+        config.logger.exception(e)
+        task.invited_contacts.append(contacts[0])
+        account.last_used = datetime.datetime.now()
+        session.commit()
     except Exception as e:
         config.logger.exception(e)
         session.delete(account)
