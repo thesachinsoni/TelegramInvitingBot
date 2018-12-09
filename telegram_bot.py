@@ -47,6 +47,19 @@ def report(bot, update):
 
 
 @restricted
+def commands(bot, update):
+    text = '<b>COMMANDS</b>\n' \
+           '/register <code>[N]</code> - register N new accounts.\n' \
+           '/scrape <code>[group]</code> - scrape users from group.\n' \
+           '/invite - start inviting users.\n' \
+           '/tasks - control active inviting processes.\n' \
+           '/add_account <code>[phone_number]</code> - add new Telegram account.\n' \
+           '/report - get groups and number of users, scrapped from them.\n' \
+           '/custom_scrape <code>[phone_number]</code> - scrape group using specific account.'
+    update.message.reply_text(text, parse_mode=ParseMode.HTML)
+
+
+@restricted
 def register(bot, update, args):
     if len(args) == 1:
         limit = args[0]
@@ -482,6 +495,7 @@ dispatcher.add_handler(CommandHandler('start', start))
 dispatcher.add_handler(CommandHandler('scrape', scrape, pass_args=True))
 dispatcher.add_handler(CommandHandler('register', register, pass_args=True))
 dispatcher.add_handler(CommandHandler('report', report))
+dispatcher.add_handler(CommandHandler('commands', commands))
 dispatcher.add_handler(new_task_handler)
 dispatcher.add_handler(edit_tasks_handler)
 dispatcher.add_handler(new_tg_account_handler)
