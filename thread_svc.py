@@ -87,11 +87,11 @@ def register_accounts(limit):
                         fails_count += 1
                 if myself:
                     registered_count += 1
-                client.disconnect()
+                    account = TelegramAccount(phone_number='+' + str(number))
+                    session.add(account)
+                    session.commit()
 
-                account = TelegramAccount(phone_number='+'+str(number))
-                session.add(account)
-                session.commit()
+                client.disconnect()
             except Exception as e:
                 config.logger.exception(e)
                 fails_count += 1
