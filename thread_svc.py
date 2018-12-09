@@ -52,10 +52,10 @@ def register_accounts(limit):
         if number is None:
             fails_count += 1
             continue
+        client = TelegramClient(os.path.join(config.TELETHON_SESSIONS_DIR, '+' + str(number)),
+                                config.TELEGRAM_API_ID, config.TELEGRAM_API_HASH,
+                                proxy=(socks.SOCKS5, 'localhost', 9050))
         try:
-            client = TelegramClient(os.path.join(config.TELETHON_SESSIONS_DIR, '+'+str(number)),
-                                    config.TELEGRAM_API_ID, config.TELEGRAM_API_HASH,
-                                    proxy=(socks.SOCKS5, 'localhost', 9050))
             client.connect()
             client.send_code_request('+'+str(number), force_sms=True)
             send_code_time = datetime.datetime.now()
@@ -89,6 +89,8 @@ def register_accounts(limit):
                 continue
         except Exception as e:
             config.logger.exception(e)
+            if client.is_connected():
+                client.disconnect()
             fails_count += 1
 
     for adm in config.ADMIN_IDS:
