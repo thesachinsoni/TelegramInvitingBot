@@ -13,6 +13,7 @@ class TelegramAccount(Base):
     id = Column(Integer, primary_key=True)
     phone_number = Column(String(50))
     created_at = Column(DateTime, default=datetime.datetime.now)
+    error_time = Column(DateTime)
     active = Column(Boolean, default=True)
     last_used = Column(DateTime)
     task_id = Column(Integer, ForeignKey('task.id'))

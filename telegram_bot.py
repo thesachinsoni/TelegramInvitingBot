@@ -1,4 +1,5 @@
 import os
+import datetime
 
 from telegram import ParseMode, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import (CommandHandler, Updater, MessageHandler,
@@ -151,7 +152,8 @@ def accounts_amount(bot, update, user_data):
             TelegramAccount.task == None
         ).limit(amount).all()
         for acc in free_accounts:
-            acc.task = task
+            if acc.error_time == None or (datetime.datetime.now() - acc.error_time).days > 7:
+                acc.task = task
         session.commit()
         update.message.reply_text("Great! Inviting started.")
         return ConversationHandler.END

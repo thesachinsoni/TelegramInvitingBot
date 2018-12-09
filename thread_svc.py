@@ -226,6 +226,8 @@ def invite_contact(task_id):
             ChannelPrivateError, AuthKeyUnregisteredError, UserChannelsTooMuchError) as e:
         config.logger.exception(e)
         account.active = False
+        account.task = None
+        account.error_time = datetime.datetime.now()
         session.commit()
     except Exception as e:
         config.logger.exception(e)
