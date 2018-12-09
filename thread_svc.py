@@ -126,7 +126,7 @@ def scrape_contacts(group_link):
     session.add_all(contacts)
     session.commit()
     for adm in config.ADMIN_IDS:
-        bot.send_message(admin, f'Scrapped {len(filtered_participants)} from {group.title}.\n'
+        bot.send_message(adm, f'Scrapped {len(filtered_participants)} from {group.title}.\n'
                                 f'Skipped {abs(len(filtered_participants)-len(participants))} '
                                 f'admins and bots.')
 
