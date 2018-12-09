@@ -7,6 +7,7 @@ API_URL = "http://www.getsmscode.com/do.php?"
 USERNAME = config.GETSMSCODE_USERNAME
 TOKEN = config.GETSMSCODE_TOKEN
 PROJECT_ID = 10  # Telegram
+COUNTRY_CODE = 'my'  # Malaysia
 
 
 def get_summary():
@@ -26,7 +27,7 @@ def get_summary():
 def get_mobile_number():
     try:
         r = requests.get(API_URL+f'action=getmobile&username={USERNAME}&'
-                                 f'token={TOKEN}&pid={PROJECT_ID}')
+                                 f'token={TOKEN}&pid={PROJECT_ID}&cocode={COUNTRY_CODE}')
         if r.text.isdigit():
             return r.text
     except Exception as e:
@@ -36,7 +37,8 @@ def get_mobile_number():
 def get_sms(mobile_number):
     try:
         r = requests.get(API_URL+f'action=getsms&username={USERNAME}&'
-                                 f'token={TOKEN}&pid={PROJECT_ID}&mobile={mobile_number}')
+                                 f'token={TOKEN}&pid={PROJECT_ID}&mobile={mobile_number}'
+                                 f'&cocode={COUNTRY_CODE}')
         if r.text.split('|')[1] != 'not receive':
             return int(''.join(filter(lambda x: x.isdigit(), r.text.split('|')[1])))
     except Exception as e:
@@ -46,6 +48,7 @@ def get_sms(mobile_number):
 def blacklist_mobile_number(mobile_number):
     try:
         requests.get(API_URL+f'action=addblack&username={USERNAME}&'
-                             f'token={TOKEN}&pid={PROJECT_ID}&mobile={mobile_number}')
+                             f'token={TOKEN}&pid={PROJECT_ID}&mobile={mobile_number}'
+                             f'&cocode={COUNTRY_CODE}')
     except Exception as e:
         config.logger.exception(e)
