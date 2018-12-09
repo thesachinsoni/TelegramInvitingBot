@@ -544,7 +544,7 @@ new_task_handler = ConversationHandler(
 )
 
 custom_new_task_handler = ConversationHandler(
-    entry_points=[CommandHandler('custom_invite', invite)],
+    entry_points=[CommandHandler('custom_invite', custom_inviting)],
     states={
         SELECT_ACCOUNT: [CallbackQueryHandler(select_account, pass_user_data=True)],
         SET_CUSTOM_INTERVAL: [MessageHandler(Filters.text, custom_interval, pass_user_data=True)],
