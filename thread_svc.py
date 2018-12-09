@@ -127,6 +127,8 @@ def scrape_contacts(group_link, phone_number=None):
         client.connect()
         if group_link.startswith('-'):
             group_link = int(group_link)
+        else:
+            group_link = group_link.lower()
         account_id = client.get_me().id
         group = client.get_entity(group_link)
         participants = client.get_participants(group, aggressive=True)
@@ -234,23 +236,21 @@ def invite_contact(task_id):
                             proxy=(socks.SOCKS5, 'localhost', 9050))
     client.connect()
     try:
-        client(JoinChannelRequest(task.target_group))
-        client(InviteToChannelRequest(task.target_group, [contacts[0].tg_id]))
+        target = int(task.target_group) if task.target_group.startswith('-') \
+            else task.target_group.lower()
+        client(JoinChannelRequest(target))
+        client(InviteToChannelRequest(target, [contacts[0].tg_id]))
         task.invited_contacts.append(contacts[0])
         account.last_used = datetime.datetime.now()
         session.commit()
-    except PeerFloodError as e:
+    except (PeerFloodError, ChatWriteForbiddenError, UserBannedInChannelError, ChannelPrivateError) as e:
         config.logger.exception(e)
         account.active = False
         account.task = None
         account.error_time = datetime.datetime.now()
         session.commit()
-    except (UserDeactivatedError, ChatWriteForbiddenError, UserBannedInChannelError,
-            ChannelPrivateError, AuthKeyUnregisteredError, UserChannelsTooMuchError) as e:
+    except Exception as e:
         config.logger.exception(e)
         session.delete(account)
         session.commit()
-    except Exception as e:
-        config.logger.exception(e)
-        session.rollback()
     client.disconnect()

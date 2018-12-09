@@ -148,7 +148,7 @@ def accounts_amount(bot, update, user_data):
     if update.message.text.isdigit():
         amount = int(update.message.text)
         task = Task(source_group=user_data['source_group'],
-                    target_group=user_data['target_group'],
+                    target_group=user_data['target_group'].lower(),
                     interval=user_data['interval'],
                     invites_limit=user_data['limit'])
         session.add(task)
