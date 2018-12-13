@@ -61,3 +61,19 @@ class Contact(Base):
         self.source_group = source_group
         self.username = username
         self.priority = priority
+
+
+class Proxy(Base):
+    __tablename__ = "proxy"
+
+    id = Column(Integer, primary_key=True)
+    ip = Column(String(300))
+    port = Column(Integer)
+    username = Column(String(300))
+    password = Column(String(400))
+
+    def __init__(self, ip, port, username, password):
+        self.ip = ip
+        self.port = port
+        self.username = username
+        self.password = password

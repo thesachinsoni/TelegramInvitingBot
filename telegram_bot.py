@@ -9,7 +9,7 @@ import socks
 from sqlalchemy import func
 
 import config
-from models import TelegramAccount, Task, Contact
+from models import TelegramAccount, Task, Contact, Proxy
 from database import session
 from telegram_svc import restricted, error_callback, build_menu
 from thread_svc import run_threaded, register_accounts, scrape_contacts
@@ -61,7 +61,8 @@ def commands(bot, update):
            '/tasks - control active inviting processes.\n' \
            '/add_account <code>[phone_number]</code> - add new Telegram account.\n' \
            '/report - get accounts info, groups and number of users, scrapped from them.\n' \
-           '/custom_scrape <code>[phone_number]</code> - scrape group using specific account.'
+           '/custom_scrape <code>[phone_number]</code> - scrape group using specific account.\n' \
+           '/set_proxy <code>[ip:port:username:password]</code> - set proxy for Telegram connection.'
     update.message.reply_text(text, parse_mode=ParseMode.HTML)
 
 
@@ -79,6 +80,30 @@ def register(bot, update, args):
         update.message.reply_text("Please, include the limit of new accounts to the "
                                   "command, like in the example:\n"
                                   "<code>/register 10</code>",
+                                  parse_mode=ParseMode.HTML)
+
+
+@restricted
+def set_proxy(bot, update, args):
+    if len(args) == 1:
+        proxy_data = args[0].split(':')
+        if len(proxy_data) != 4:
+            update.message.reply_text("Please, include the proxy data to the "
+                                      "command, like in the example:\n"
+                                      "<code>/set_proxy mydomain.com:8080:usErnAme:s3cret</code>",
+                                      parse_mode=ParseMode.HTML)
+            return
+        proxy_ip, proxy_port, proxy_username, proxy_password = proxy_data
+        current_proxy = session.query(Proxy).first()
+        session.delete(current_proxy)
+        new_proxy = Proxy(proxy_ip, proxy_port, proxy_username, proxy_password)
+        session.add(new_proxy)
+        session.commit()
+        update.message.reply_text("Proxy settings updated.")
+    else:
+        update.message.reply_text("Please, include the proxy data to the "
+                                  "command, like in the example:\n"
+                                  "<code>/set_proxy mydomain.com:8080:usErnAme:s3cret</code>",
                                   parse_mode=ParseMode.HTML)
 
 
@@ -323,9 +348,11 @@ def add_account(bot, update, args, user_data):
         if phone_number in phone_numbers:
             update.message.reply_text("Sorry, this phone number already exists.")
             return ConversationHandler.END
+        proxy = session.query(Proxy).first()
         client = TelegramClient(os.path.join(config.TELETHON_SESSIONS_DIR, phone_number),
                                 config.TELEGRAM_API_ID, config.TELEGRAM_API_HASH,
-                                proxy=(socks.SOCKS5, 'localhost', 9050))
+                                proxy=(socks.HTTP, proxy.ip, proxy.port,
+                                       True, proxy.username, proxy.password))
         client.connect()
 
         result = client.send_code_request(phone_number, force_sms=True)
@@ -343,9 +370,11 @@ def add_account(bot, update, args, user_data):
 @restricted
 def confirm_tg_account(bot, update, user_data):
     code = update.message.text
+    proxy = session.query(Proxy).first()
     client = TelegramClient(os.path.join(config.TELETHON_SESSIONS_DIR, user_data['phone_number']),
                             config.TELEGRAM_API_ID, config.TELEGRAM_API_HASH,
-                            proxy=(socks.SOCKS5, 'localhost', 9050))
+                            proxy=(socks.HTTP, proxy.ip, proxy.port,
+                                   True, proxy.username, proxy.password))
     client.connect()
 
     try:
@@ -372,9 +401,11 @@ def custom_scrape(bot, update, args, user_data):
     if len(args) == 1:
         phone_number = args[0]
         user_data['phone_number'] = phone_number
+        proxy = session.query(Proxy).first()
         client = TelegramClient(os.path.join(config.TELETHON_SESSIONS_DIR, phone_number),
                                 config.TELEGRAM_API_ID, config.TELEGRAM_API_HASH,
-                                proxy=(socks.SOCKS5, 'localhost', 9050))
+                                proxy=(socks.HTTP, proxy.ip, proxy.port,
+                                       True, proxy.username, proxy.password))
         client.connect()
         try:
             dialogs = client.get_dialogs()
@@ -502,6 +533,7 @@ dispatcher.add_handler(CommandHandler('start', start))
 dispatcher.add_handler(CommandHandler('scrape', scrape, pass_args=True))
 dispatcher.add_handler(CommandHandler('register', register, pass_args=True))
 dispatcher.add_handler(CommandHandler('report', report))
+dispatcher.add_handler(CommandHandler('set_proxy', set_proxy, pass_args=True))
 dispatcher.add_handler(CommandHandler('commands', commands))
 dispatcher.add_handler(new_task_handler)
 dispatcher.add_handler(edit_tasks_handler)

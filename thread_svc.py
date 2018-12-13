@@ -15,7 +15,7 @@ from telethon.errors import AuthKeyUnregisteredError, UserBannedInChannelError, 
 from telegram import Bot
 from sqlalchemy import desc
 
-from models import TelegramAccount, Contact, Task
+from models import TelegramAccount, Contact, Task, Proxy
 from database import session
 from getsmscode_svc import get_summary, get_sms, get_mobile_number, blacklist_mobile_number
 from randomuser_svc import get_random_first_last_names
@@ -53,9 +53,11 @@ def register_accounts(limit):
         if number is None:
             fails_count += 1
             continue
+        proxy = session.query(Proxy).first()
         client = TelegramClient(os.path.join(config.TELETHON_SESSIONS_DIR, '+' + str(number)),
                                 config.TELEGRAM_API_ID, config.TELEGRAM_API_HASH,
-                                proxy=(socks.SOCKS5, 'localhost', 9050))
+                                proxy=(socks.HTTP, proxy.ip, proxy.port,
+                                       True, proxy.username, proxy.password))
         try:
             client.connect()
             client.send_code_request('+'+str(number), force_sms=True)
@@ -121,9 +123,11 @@ def scrape_contacts(group_link, phone_number=None):
             TelegramAccount.phone_number == phone_number,
         ).first()
     try:
+        proxy = session.query(Proxy).first()
         client = TelegramClient(os.path.join(config.TELETHON_SESSIONS_DIR, account.phone_number),
                                 config.TELEGRAM_API_ID, config.TELEGRAM_API_HASH,
-                                proxy=(socks.SOCKS5, 'localhost', 9050))
+                                proxy=(socks.HTTP, proxy.ip, proxy.port,
+                                       True, proxy.username, proxy.password))
         client.connect()
         if group_link.startswith('-'):
             group_link = int(group_link)
@@ -231,9 +235,11 @@ def invite_contact(task_id):
     ).order_by(desc(Contact.priority)).all()
     invited_contacts_ids = [c.id for c in task.invited_contacts]
     contacts = [c for c in contacts if c.id not in invited_contacts_ids]
+    proxy = session.query(Proxy).first()
     client = TelegramClient(os.path.join(config.TELETHON_SESSIONS_DIR, account.phone_number),
                             config.TELEGRAM_API_ID, config.TELEGRAM_API_HASH,
-                            proxy=(socks.SOCKS5, 'localhost', 9050))
+                            proxy=(socks.HTTP, proxy.ip, proxy.port,
+                                   True, proxy.username, proxy.password))
     client.connect()
     try:
         target = int(task.target_group) if task.target_group.startswith('-') \
