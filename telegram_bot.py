@@ -95,7 +95,8 @@ def set_proxy(bot, update, args):
             return
         proxy_ip, proxy_port, proxy_username, proxy_password = proxy_data
         current_proxy = session.query(Proxy).first()
-        session.delete(current_proxy)
+        if current_proxy:
+            session.delete(current_proxy)
         new_proxy = Proxy(proxy_ip, proxy_port, proxy_username, proxy_password)
         session.add(new_proxy)
         session.commit()
