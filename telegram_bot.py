@@ -504,11 +504,11 @@ def list_accounts(bot, update):
     if active_accounts:
         text = '<b>Active accounts</b>\n'
         for acc in active_accounts:
-            text += '+{}\n'.format(acc.phone_number)
+            text += '{}\n'.format(acc.phone_number)
     if inactive_accounts:
         text = '\n<b>Inactive accounts</b>\n'
         for acc in inactive_accounts:
-            text += '+{}\n'.format(acc.phone_number)
+            text += '{}\n'.format(acc.phone_number)
     update.message.reply_text(text, parse_mode=ParseMode.HTML)
 
 
