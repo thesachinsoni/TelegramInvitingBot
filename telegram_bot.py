@@ -55,7 +55,6 @@ def report(bot, update):
 @restricted
 def commands(bot, update):
     text = '<b>COMMANDS</b>\n' \
-           '/register <code>[N]</code> - register N new accounts.\n' \
            '/scrape <code>[group]</code> - scrape users from group.\n' \
            '/invite - start inviting users.\n' \
            '/tasks - control active inviting processes.\n' \
