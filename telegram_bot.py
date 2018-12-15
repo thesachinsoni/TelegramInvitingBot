@@ -498,14 +498,17 @@ def select_group_for_scrapping(bot, update, user_data):
 @restricted
 def list_accounts(bot, update):
     accounts = session.query(TelegramAccount).all()
-    active_accounts = [acc for acc in accounts if acc.active == True]
-    inactive_accounts = [acc for acc in accounts if acc.active == False]
-    text = '<b>Active accounts</b>\n'
-    for acc in active_accounts:
-        text += '{}\n'.format(acc.phone_number)
-    text = '\n<b>Inactive accounts</b>\n'
-    for acc in inactive_accounts:
-        text += '{}\n'.format(acc.phone_number)
+    active_accounts = [acc for acc in accounts if bool(acc.active) == True]
+    inactive_accounts = [acc for acc in accounts if bool(acc.active) == False]
+    text = ''
+    if active_accounts:
+        text = '<b>Active accounts</b>\n'
+        for acc in active_accounts:
+            text += '+{}\n'.format(acc.phone_number)
+    if inactive_accounts:
+        text = '\n<b>Inactive accounts</b>\n'
+        for acc in inactive_accounts:
+            text += '+{}\n'.format(acc.phone_number)
     update.message.reply_text(text, parse_mode=ParseMode.HTML)
 
 
