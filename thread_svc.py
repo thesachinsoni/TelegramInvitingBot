@@ -174,7 +174,12 @@ def perform_tasks():
         if task.last_invite != None:
             delta = datetime.datetime.now() - task.last_invite
             seconds_passed = delta.total_seconds()
-            if seconds_passed > task.interval * 60:
+            interval = [
+                (task.interval * 60) - (task.interval * 60) * 0.1,
+                (task.interval * 60) + (task.interval * 60) * 0.3,
+            ]
+            random_interval = random.randint(interval[0], interval[1])
+            if seconds_passed > random_interval:
                 contacts = session.query(Contact).filter(
                     Contact.source_group == task.source_group
                 ).all()

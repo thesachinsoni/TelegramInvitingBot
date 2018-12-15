@@ -67,23 +67,23 @@ def commands(bot, update):
            '/list_accounts - list all accounts.'
     update.message.reply_text(text, parse_mode=ParseMode.HTML)
 
-
-@restricted
-def register(bot, update, args):
-    if len(args) == 1:
-        limit = args[0]
-        if not limit.isdigit():
-            update.message.reply_text("Limit must be integer value.")
-            return
-        run_threaded(register_accounts, (int(limit), ))
-        update.message.reply_text("Registration process started. "
-                                  "Please, wait.")
-    else:
-        update.message.reply_text("Please, include the limit of new accounts to the "
-                                  "command, like in the example:\n"
-                                  "<code>/register 10</code>",
-                                  parse_mode=ParseMode.HTML)
-
+#
+# @restricted
+# def register(bot, update, args):
+#     if len(args) == 1:
+#         limit = args[0]
+#         if not limit.isdigit():
+#             update.message.reply_text("Limit must be integer value.")
+#             return
+#         run_threaded(register_accounts, (int(limit), ))
+#         update.message.reply_text("Registration process started. "
+#                                   "Please, wait.")
+#     else:
+#         update.message.reply_text("Please, include the limit of new accounts to the "
+#                                   "command, like in the example:\n"
+#                                   "<code>/register 10</code>",
+#                                   parse_mode=ParseMode.HTML)
+#
 
 @restricted
 def set_proxy(bot, update, args):
@@ -362,7 +362,8 @@ def add_account(bot, update, args, user_data):
             result = client.send_code_request(phone_number, force_sms=True)
             client.disconnect()
         except Exception as e:
-            update.message.reply_text("Error happened. Try again later.")
+            update.message.reply_text("Error happened: {}. \nTry again "
+                                      "later.".format(e.message))
             config.logger.exception(e)
             return ConversationHandler.END
         user_data['phone_number'] = phone_number
@@ -506,9 +507,12 @@ def list_accounts(bot, update):
         for acc in active_accounts:
             text += '{}\n'.format(acc.phone_number)
     if inactive_accounts:
-        text = '\n<b>Inactive accounts</b>\n'
+        text = '\n<b>Inactive accounts</b>\n' \
+               '<i>phone number</i>|<i>added at</i>|<i>error datetime</i>\n'
         for acc in inactive_accounts:
-            text += '{}\n'.format(acc.phone_number)
+            text += '{}|{}|{}\n'.format(acc.phone_number,
+                                        acc.created_at.strftime('%Y.%m.%d %h:%M:%S'),
+                                        acc.error_time.strftime('%Y.%m.%d %h:%M:%S'))
     update.message.reply_text(text, parse_mode=ParseMode.HTML)
 
 
@@ -558,7 +562,7 @@ custom_scrape_handler = ConversationHandler(
 
 dispatcher.add_handler(CommandHandler('start', start))
 dispatcher.add_handler(CommandHandler('scrape', scrape, pass_args=True))
-dispatcher.add_handler(CommandHandler('register', register, pass_args=True))
+# dispatcher.add_handler(CommandHandler('register', register, pass_args=True))
 dispatcher.add_handler(CommandHandler('report', report))
 dispatcher.add_handler(CommandHandler('list_accounts', list_accounts))
 dispatcher.add_handler(CommandHandler('set_proxy', set_proxy, pass_args=True))
