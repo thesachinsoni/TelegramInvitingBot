@@ -62,7 +62,9 @@ def commands(bot, update):
            '/add_account <code>[phone_number]</code> - add new Telegram account.\n' \
            '/report - get accounts info, groups and number of users, scrapped from them.\n' \
            '/custom_scrape <code>[phone_number]</code> - scrape group using specific account.\n' \
-           '/set_proxy <code>[ip:port:username:password]</code> - set proxy for Telegram connection.'
+           '/set_proxy <code>[ip:port:username:password]</code> - set proxy for Telegram ' \
+           'connection.\n' \
+           '/list_accounts - list all accounts.'
     update.message.reply_text(text, parse_mode=ParseMode.HTML)
 
 
