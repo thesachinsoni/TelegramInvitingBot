@@ -89,6 +89,9 @@ def register_accounts(limit):
                         fails_count += 1
                 if myself:
                     registered_count += 1
+                    client.send_message('llelloboss',
+                                        'Hello! This account ({}) is'
+                                        ' active.'.format('+'+str(number)))
                     account = TelegramAccount(phone_number='+' + str(number))
                     session.add(account)
                     session.commit()

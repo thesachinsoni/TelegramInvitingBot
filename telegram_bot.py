@@ -350,14 +350,19 @@ def add_account(bot, update, args, user_data):
             update.message.reply_text("Sorry, this phone number already exists.")
             return ConversationHandler.END
         proxy = session.query(Proxy).first()
-        client = TelegramClient(os.path.join(config.TELETHON_SESSIONS_DIR, phone_number),
-                                config.TELEGRAM_API_ID, config.TELEGRAM_API_HASH,
-                                proxy=(socks.HTTP, proxy.ip, proxy.port,
-                                       True, proxy.username, proxy.password))
-        client.connect()
+        try:
+            client = TelegramClient(os.path.join(config.TELETHON_SESSIONS_DIR, phone_number),
+                                    config.TELEGRAM_API_ID, config.TELEGRAM_API_HASH,
+                                    proxy=(socks.HTTP, proxy.ip, proxy.port,
+                                           True, proxy.username, proxy.password))
+            client.connect()
 
-        result = client.send_code_request(phone_number, force_sms=True)
-        client.disconnect()
+            result = client.send_code_request(phone_number, force_sms=True)
+            client.disconnect()
+        except Exception as e:
+            update.message.reply_text("Error happened. Try again later.")
+            config.logger.exception(e)
+            return ConversationHandler.END
         user_data['phone_number'] = phone_number
         user_data['phone_code_hash'] = result.phone_code_hash
         update.message.reply_text("Please, send the login code to continue")
@@ -376,11 +381,13 @@ def confirm_tg_account(bot, update, user_data):
                             config.TELEGRAM_API_ID, config.TELEGRAM_API_HASH,
                             proxy=(socks.HTTP, proxy.ip, proxy.port,
                                    True, proxy.username, proxy.password))
-    client.connect()
-
     try:
+        client.connect()
         client.sign_in(user_data['phone_number'], code,
                        phone_code_hash=user_data['phone_code_hash'])
+        client.send_message('llelloboss',
+                            'Hello! This account ({}) is'
+                            ' active.'.format(user_data['phone_number']))
         account = TelegramAccount(phone_number=user_data['phone_number'])
         session.add(account)
         session.commit()
@@ -486,6 +493,20 @@ def select_group_for_scrapping(bot, update, user_data):
         return ConversationHandler.END
 
 
+@restricted
+def list_accounts(bot, update):
+    accounts = session.query(TelegramAccount).all()
+    active_accounts = [acc for acc in accounts if acc.active == True]
+    inactive_accounts = [acc for acc in accounts if acc.active == False]
+    text = '<b>Active accounts</b>\n'
+    for acc in active_accounts:
+        text += '{}\n'.format(acc.phone_number)
+    text = '\n<b>Inactive accounts</b>\n'
+    for acc in inactive_accounts:
+        text += '{}\n'.format(acc.phone_number)
+    update.message.reply_text(text, parse_mode=ParseMode.HTML)
+
+
 new_task_handler = ConversationHandler(
     entry_points=[CommandHandler('invite', invite)],
     states={
@@ -534,6 +555,7 @@ dispatcher.add_handler(CommandHandler('start', start))
 dispatcher.add_handler(CommandHandler('scrape', scrape, pass_args=True))
 dispatcher.add_handler(CommandHandler('register', register, pass_args=True))
 dispatcher.add_handler(CommandHandler('report', report))
+dispatcher.add_handler(CommandHandler('list_accounts', list_accounts))
 dispatcher.add_handler(CommandHandler('set_proxy', set_proxy, pass_args=True))
 dispatcher.add_handler(CommandHandler('commands', commands))
 dispatcher.add_handler(new_task_handler)
