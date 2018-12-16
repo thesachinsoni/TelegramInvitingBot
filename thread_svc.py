@@ -186,9 +186,10 @@ def perform_tasks():
                 invited_contacts = session.query(Contact).filter(Contact.task == task).all()
                 if len(invited_contacts) < task.invites_limit and \
                         len(contacts) > len(invited_contacts):
-                    invite_contact(task.id)
-                    task.last_invite = datetime.datetime.now()
-                    session.commit()
+                    invited = invite_contact(task.id)
+                    if invited:
+                        task.last_invite = datetime.datetime.now()
+                        session.commit()
                 else:
                     session.delete(task)
                     session.commit()
@@ -250,15 +251,21 @@ def invite_contact(task_id):
                                    True, proxy.username, proxy.password))
     client.connect()
     try:
-        target = int(task.target_group) if task.target_group.startswith('-') \
-            else task.target_group.lower()
-        client(JoinChannelRequest(target))
-        contact = int(contacts[0].tg_id) if contacts[0].username == None \
-            else contacts[0].username
-        client(InviteToChannelRequest(target, [contact]))
-        task.invited_contacts.append(contacts[0])
-        account.last_used = datetime.datetime.now()
-        session.commit()
+        participants = client.get_participants(task.target_group, aggressive=True)
+        if int(contacts[0].tg_id) not in [i.id for i in participants]:
+            target = int(task.target_group) if task.target_group.startswith('-') \
+                else task.target_group.lower()
+            client(JoinChannelRequest(target))
+            contact = int(contacts[0].tg_id) if contacts[0].username == None \
+                else contacts[0].username
+            client(InviteToChannelRequest(target, [contact]))
+            task.invited_contacts.append(contacts[0])
+            account.last_used = datetime.datetime.now()
+            session.commit()
+        else:
+            session.delete(contacts[0])
+            account.last_used = datetime.datetime.now()
+            session.commit()
     except (PeerFloodError, ChatWriteForbiddenError, UserBannedInChannelError, ChannelPrivateError) as e:
         config.logger.exception(e)
         account.active = False
