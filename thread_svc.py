@@ -12,10 +12,10 @@ from telethon.tl.types import ChannelParticipantsAdmins
 from telethon.errors import AuthKeyUnregisteredError, UserBannedInChannelError, PeerFloodError, \
     UserChannelsTooMuchError, ChatWriteForbiddenError, UserDeactivatedError, ChannelPrivateError, \
     PhoneNumberOccupiedError
-from telegram import Bot
+from telegram import Bot, ParseMode
 from sqlalchemy import desc
 
-from models import TelegramAccount, Contact, Task, Proxy
+from models import TelegramAccount, Contact, Task, Proxy, InviteError
 from database import session
 from getsmscode_svc import get_summary, get_sms, get_mobile_number, blacklist_mobile_number
 from randomuser_svc import get_random_first_last_names
@@ -121,6 +121,17 @@ def scrape_contacts(group_link, phone_number=None):
             TelegramAccount.task == None
         ).all()
         account = random.choice(free_accounts)
+        if not account:
+            active_accounts = session.query(TelegramAccount).filter(
+                TelegramAccount.active == True
+            ).all()
+            account = random.choice(active_accounts)
+            if not account:
+                for adm in config.ADMIN_IDS:
+                    bot.send_message(adm,
+                                     f'No available accounts for scrapping. '
+                                     f'Add an account at first.')
+                return
     else:
         account = session.query(TelegramAccount).filter(
             TelegramAccount.phone_number == phone_number,
@@ -195,10 +206,10 @@ def perform_tasks():
                     session.commit()
                     for adm in config.ADMIN_IDS:
                         bot.send_message(adm,
-                                         f'` Inviting to {task.target_group} '
-                                         f'from {task.source_group} ` completed.\n'
+                                         f'<code>Inviting to {task.target_group} '
+                                         f'from {task.source_group}</code> completed.\n'
                                          f'Invited {len(task.invited_contacts)} users.',
-                                         disable_web_page_preview=True)
+                                         parse_mode=ParseMode.HTML)
             else:
                 continue
         else:
@@ -216,69 +227,82 @@ def perform_tasks():
                 session.commit()
                 for adm in config.ADMIN_IDS:
                     bot.send_message(adm,
-                                     f'` Inviting to {task.target_group} '
-                                     f'from {task.source_group} ` completed.\n'
+                                     f'<code> Inviting to {task.target_group} '
+                                     f'from {task.source_group}</code> completed.\n'
                                      f'Invited {len(task.invited_contacts)} users.',
-                                     disable_web_page_preview=True)
+                                     parse_mode=ParseMode.HTML)
 
 
 def invite_contact(task_id):
     task = session.query(Task).filter(
         Task.id == task_id
     ).first()
-    account = session.query(TelegramAccount).filter(
+    accounts = session.query(TelegramAccount).filter(
         TelegramAccount.active == True,
         TelegramAccount.task == task
-    ).order_by(TelegramAccount.last_used).first()
-    if not account:
+    ).order_by(TelegramAccount.last_used).all()
+    if not accounts:
         session.delete(task)
         session.commit()
         for adm in config.ADMIN_IDS:
             bot.send_message(adm,
-                             f'` Inviting to {task.target_group} '
-                             f'from {task.source_group} ` stopped.\n'
-                             f'No active accounts left.')
+                             f'<code>Inviting to {task.target_group} '
+                             f'from {task.source_group}</code> stopped.\n'
+                             f'No active accounts left.',
+                             parse_mode=ParseMode.HTML)
         return
+    account = random.choice(accounts)
     contacts = session.query(Contact).filter(
         Contact.source_group == task.source_group
     ).order_by(desc(Contact.priority)).all()
+    invite_errors = session.query(InviteError).filter(
+        InviteError.task == task
+    ).all()
+    contacts_with_errors_ids = [i.contact_id for i in invite_errors]
     invited_contacts_ids = [c.id for c in task.invited_contacts]
-    contacts = [c for c in contacts if c.id not in invited_contacts_ids]
+    contacts = [c for c in contacts if c.id not in invited_contacts_ids and
+                c.id not in contacts_with_errors_ids]
     proxy = session.query(Proxy).first()
     client = TelegramClient(os.path.join(config.TELETHON_SESSIONS_DIR, account.phone_number),
                             config.TELEGRAM_API_ID, config.TELEGRAM_API_HASH,
                             proxy=(socks.HTTP, proxy.ip, proxy.port,
                                    True, proxy.username, proxy.password))
-    client.connect()
     try:
+        client.connect()
         participants = client.get_participants(task.target_group, aggressive=True)
         if int(contacts[0].tg_id) not in [i.id for i in participants]:
             target = int(task.target_group) if task.target_group.startswith('-') \
                 else task.target_group.lower()
             client(JoinChannelRequest(target))
-            contact = int(contacts[0].tg_id) if contacts[0].username == None \
-                else contacts[0].username
+            contact = next((p for p in participants if p.id == contacts[0].tg_id))
             client(InviteToChannelRequest(target, [contact]))
             task.invited_contacts.append(contacts[0])
             account.last_used = datetime.datetime.now()
             session.commit()
         else:
-            session.delete(contacts[0])
+            error = InviteError(task=task, contact=contacts[0])
+            session.add(error)
             account.last_used = datetime.datetime.now()
             session.commit()
-    except (PeerFloodError, ChatWriteForbiddenError, UserBannedInChannelError, ChannelPrivateError) as e:
+    except PeerFloodError as e:
         config.logger.exception(e)
         account.active = False
         account.task = None
         account.error_time = datetime.datetime.now()
         session.commit()
-    except ValueError as e:
-        config.logger.exception(e)
-        task.invited_contacts.append(contacts[0])
-        account.last_used = datetime.datetime.now()
-        session.commit()
-    except Exception as e:
+    except (AuthKeyUnregisteredError, UserDeactivatedError) as e:
         config.logger.exception(e)
         session.delete(account)
         session.commit()
+        for adm in config.ADMIN_IDS:
+            bot.send_message(adm,
+                             f'Account {account.phone_number} had {e.__name__} '
+                             f'and was removed.')
+    except ValueError as e:
+        config.logger.exception(e)
+        error = InviteError(task=task, contact=contacts[0])
+        session.add(error)
+        session.commit()
+    except Exception as e:
+        config.logger.exception(e)
     client.disconnect()

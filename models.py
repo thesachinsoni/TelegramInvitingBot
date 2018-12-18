@@ -15,6 +15,7 @@ class TelegramAccount(Base):
     created_at = Column(DateTime, default=datetime.datetime.now)
     error_time = Column(DateTime)
     active = Column(Boolean, default=True)
+    use_for_inviting = Column(Boolean, default=False)
     last_used = Column(DateTime)
     task_id = Column(Integer, ForeignKey('task.id'))
     task = relationship('Task', backref="accounts")
@@ -61,6 +62,20 @@ class Contact(Base):
         self.source_group = source_group
         self.username = username
         self.priority = priority
+
+
+class InviteError(Base):
+    __tablename__ = "invite_error"
+
+    id = Column(Integer, primary_key=True)
+    task_id = Column(Integer, ForeignKey('task.id'))
+    task = relationship('Task', backref="invite_errors")
+    contact_id = Column(Integer, ForeignKey('contact.id'))
+    contact = relationship('Contact', backref="invite_errors")
+
+    def __init__(self, task, contact):
+        self.task = task
+        self.contact = contact
 
 
 class Proxy(Base):

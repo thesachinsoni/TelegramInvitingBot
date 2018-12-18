@@ -21,7 +21,7 @@ dispatcher = updater.dispatcher
 # Conversation states
 SET_SOURCE_GROUP, SET_TARGET_GROUP, SET_INVITES_LIMIT, SET_INTERVAL, \
     SET_ACCOUNTS_AMOUNT, SELECT_TASK, TASK_MENU, EDIT_INTERVAL, LOGIN_CODE, \
-    SELECT_GROUP_FOR_SCRAPPING = range(10)
+    SELECT_GROUP_FOR_SCRAPPING, USE_ACC_FOR_INVITING = range(11)
 
 
 def start(bot, update):
@@ -181,7 +181,8 @@ def accounts_amount(bot, update, user_data):
         session.add(task)
         session.commit()
         free_accounts = session.query(TelegramAccount).filter(
-            TelegramAccount.task == None
+            TelegramAccount.task == None,
+            TelegramAccount.use_for_inviting == True
         ).limit(amount).all()
         for acc in free_accounts:
             if acc.error_time == None or (datetime.datetime.now() - acc.error_time).days > 7:
@@ -393,7 +394,11 @@ def confirm_tg_account(bot, update, user_data):
         account = TelegramAccount(phone_number=user_data['phone_number'])
         session.add(account)
         session.commit()
-        update.message.reply_text('Account added successfully.')
+        client.disconnect()
+
+        update.message.reply_text('Account added successfully. Can I use it for inviting? '
+                                  '(1 - yes, 0 - no)')
+        return USE_ACC_FOR_INVITING
     except Exception as e:
         update.message.reply_text('Error: {}.'.format(e))
         path = os.path.join(config.TELETHON_SESSIONS_DIR,
@@ -401,9 +406,28 @@ def confirm_tg_account(bot, update, user_data):
         if os.path.exists(path):
             os.remove(path)
 
-    client.disconnect()
+        client.disconnect()
 
-    return ConversationHandler.END
+        return ConversationHandler.END
+
+
+@restricted
+def use_acc_for_inviting(bot, update, user_data):
+    answer = update.message.text
+    if answer.strip() == '1':
+        account = session.query(TelegramAccount).filter(
+            phone_number=user_data['phone_number']
+        ).first()
+        account.use_for_inviting = True
+        session.commit()
+        update.message.reply_text('Settings updated.')
+        return ConversationHandler.END
+    elif answer.strip() == '0':
+        update.message.reply_text('Settings updated.')
+        return ConversationHandler.END
+    else:
+        update.message.reply_text('Can I use it for inviting? (1 - yes, 0 - no)')
+        return USE_ACC_FOR_INVITING
 
 
 @restricted
@@ -502,9 +526,10 @@ def list_accounts(bot, update):
     inactive_accounts = [acc for acc in accounts if bool(acc.active) == False]
     text = ''
     if active_accounts:
-        text = '<b>Active accounts</b>\n'
+        text = '<b>Active accounts</b>\n' \
+               '<i>phone number</i>|<i>added at</i>\n'
         for acc in active_accounts:
-            text += '{}\n'.format(acc.phone_number)
+            text += '{}|{}\n'.format(acc.phone_number, acc.created_at.strftime('%Y.%m.%d %h:%M:%S'))
     if inactive_accounts:
         text = '\n<b>Inactive accounts</b>\n' \
                '<i>phone number</i>|<i>added at</i>|<i>error datetime</i>\n'
@@ -512,7 +537,11 @@ def list_accounts(bot, update):
             text += '{}|{}|{}\n'.format(acc.phone_number,
                                         acc.created_at.strftime('%Y.%m.%d %h:%M:%S'),
                                         acc.error_time.strftime('%Y.%m.%d %h:%M:%S'))
-    update.message.reply_text(text, parse_mode=ParseMode.HTML)
+    if text:
+        update.message.reply_text(text, parse_mode=ParseMode.HTML)
+    else:
+        update.message.reply_text('There are no accounts in the database.')
+
 
 
 new_task_handler = ConversationHandler(
