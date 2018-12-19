@@ -269,12 +269,14 @@ def invite_contact(task_id):
                                    True, proxy.username, proxy.password))
     try:
         client.connect()
+        source_participants = client.get_participants(task.source_group,
+                                                      aggressive=True)
         participants = client.get_participants(task.target_group, aggressive=True)
         if int(contacts[0].tg_id) not in [i.id for i in participants]:
             target = int(task.target_group) if task.target_group.startswith('-') \
                 else task.target_group.lower()
             client(JoinChannelRequest(target))
-            contact = next((p for p in participants if p.id == contacts[0].tg_id))
+            contact = next((p for p in source_participants if p.id == contacts[0].tg_id))
             client(InviteToChannelRequest(target, [contact]))
             task.invited_contacts.append(contacts[0])
             account.last_used = datetime.datetime.now()
