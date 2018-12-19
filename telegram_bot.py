@@ -363,7 +363,7 @@ def add_account(bot, update, args, user_data):
             client.disconnect()
         except Exception as e:
             update.message.reply_text("Error happened: {}. \nTry again "
-                                      "later.".format(e.message))
+                                      "later.".format(e.__name__))
             config.logger.exception(e)
             return ConversationHandler.END
         user_data['phone_number'] = phone_number
@@ -400,7 +400,7 @@ def confirm_tg_account(bot, update, user_data):
                                   '(1 - yes, 0 - no)')
         return USE_ACC_FOR_INVITING
     except Exception as e:
-        update.message.reply_text('Error: {}.'.format(e))
+        update.message.reply_text('Error: {}.'.format(e.__name__))
         path = os.path.join(config.TELETHON_SESSIONS_DIR,
                             '{}.session'.format(user_data['phone_number']))
         if os.path.exists(path):
@@ -543,7 +543,6 @@ def list_accounts(bot, update):
         update.message.reply_text('There are no accounts in the database.')
 
 
-
 new_task_handler = ConversationHandler(
     entry_points=[CommandHandler('invite', invite)],
     states={
@@ -572,7 +571,9 @@ new_tg_account_handler = ConversationHandler(
                                  pass_args=True, pass_user_data=True)],
     states={
         LOGIN_CODE: [MessageHandler(Filters.text, confirm_tg_account,
-                                    pass_user_data=True)]
+                                    pass_user_data=True)],
+        USE_ACC_FOR_INVITING: [MessageHandler(Filters.text, use_acc_for_inviting,
+                               pass_user_data=True)]
     },
     fallbacks=[CommandHandler('cancel', cancel)]
 )
