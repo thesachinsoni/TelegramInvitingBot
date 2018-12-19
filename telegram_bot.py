@@ -416,7 +416,7 @@ def use_acc_for_inviting(bot, update, user_data):
     answer = update.message.text
     if answer.strip() == '1':
         account = session.query(TelegramAccount).filter(
-            phone_number=user_data['phone_number']
+            TelegramAccount.phone_number == user_data['phone_number']
         ).first()
         account.use_for_inviting = True
         session.commit()
