@@ -271,8 +271,8 @@ def invite_contact(task_id):
         client.connect()
         source_participants = client.get_participants(task.source_group,
                                                       aggressive=True)
-        participants = client.get_participants(task.target_group, aggressive=True)
-        if int(contacts[0].tg_id) not in [i.id for i in participants]:
+        target_participants = client.get_participants(task.target_group, aggressive=True)
+        if int(contacts[0].tg_id) not in [i.id for i in target_participants]:
             target = int(task.target_group) if task.target_group.startswith('-') \
                 else task.target_group.lower()
             client(JoinChannelRequest(target))
@@ -300,11 +300,9 @@ def invite_contact(task_id):
             bot.send_message(adm,
                              f'Account {account.phone_number} had {e.__class__.__name__} '
                              f'and was removed.')
-    except ValueError as e:
+    except Exception as e:
         config.logger.exception(e)
         error = InviteError(task=task, contact=contacts[0])
         session.add(error)
         session.commit()
-    except Exception as e:
-        config.logger.exception(e)
     client.disconnect()
