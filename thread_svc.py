@@ -276,16 +276,18 @@ def invite_contact(task_id):
             target = int(task.target_group) if task.target_group.startswith('-') \
                 else task.target_group.lower()
             client(JoinChannelRequest(target))
+            contact = None
             try:
                 contact = next((p for p in source_participants if p.id == contacts[0].tg_id))
             except StopIteration:
                 error = InviteError(task=task, contact=contacts[0])
                 session.add(error)
                 session.commit()
-            client(InviteToChannelRequest(target, [contact]))
-            task.invited_contacts.append(contacts[0])
-            account.last_used = datetime.datetime.now()
-            session.commit()
+            if contact:
+                client(InviteToChannelRequest(target, [contact]))
+                task.invited_contacts.append(contacts[0])
+                account.last_used = datetime.datetime.now()
+                session.commit()
         else:
             error = InviteError(task=task, contact=contacts[0])
             session.add(error)
