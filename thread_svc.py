@@ -11,7 +11,7 @@ from telethon.tl.functions.channels import JoinChannelRequest, InviteToChannelRe
 from telethon.tl.types import ChannelParticipantsAdmins
 from telethon.errors import AuthKeyUnregisteredError, UserBannedInChannelError, PeerFloodError, \
     UserChannelsTooMuchError, ChatWriteForbiddenError, UserDeactivatedError, ChannelPrivateError, \
-    PhoneNumberOccupiedError
+    PhoneNumberOccupiedError, UserNotMutualContactError
 from telegram import Bot, ParseMode
 from sqlalchemy import desc
 
@@ -300,9 +300,11 @@ def invite_contact(task_id):
             bot.send_message(adm,
                              f'Account {account.phone_number} had {e.__class__.__name__} '
                              f'and was removed.')
-    except Exception as e:
+    except UserNotMutualContactError as e:
         config.logger.exception(e)
         error = InviteError(task=task, contact=contacts[0])
         session.add(error)
         session.commit()
+    except Exception as e:
+        config.logger.exception(e)
     client.disconnect()
