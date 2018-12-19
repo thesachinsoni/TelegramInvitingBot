@@ -296,7 +296,7 @@ def invite_contact(task_id):
         session.commit()
         for adm in config.ADMIN_IDS:
             bot.send_message(adm,
-                             f'Account {account.phone_number} had {e.__name__} '
+                             f'Account {account.phone_number} had {e.__class__.__name__} '
                              f'and was removed.')
     except ValueError as e:
         config.logger.exception(e)

@@ -363,7 +363,7 @@ def add_account(bot, update, args, user_data):
             client.disconnect()
         except Exception as e:
             update.message.reply_text("Error happened: {}. \nTry again "
-                                      "later.".format(e.__name__))
+                                      "later.".format(e.__class__.__name__))
             config.logger.exception(e)
             return ConversationHandler.END
         user_data['phone_number'] = phone_number
@@ -400,7 +400,7 @@ def confirm_tg_account(bot, update, user_data):
                                   '(1 - yes, 0 - no)')
         return USE_ACC_FOR_INVITING
     except Exception as e:
-        update.message.reply_text('Error: {}.'.format(e.__name__))
+        update.message.reply_text('Error: {}.'.format(e.__class__.__name__))
         path = os.path.join(config.TELETHON_SESSIONS_DIR,
                             '{}.session'.format(user_data['phone_number']))
         if os.path.exists(path):
