@@ -529,14 +529,14 @@ def list_accounts(bot, update):
         text = '<b>Active accounts</b>\n' \
                '<i>phone number</i>|<i>added at</i>\n'
         for acc in active_accounts:
-            text += '{}|{}\n'.format(acc.phone_number, acc.created_at.strftime('%Y.%m.%d %h:%M:%S'))
+            text += '{}|{}\n'.format(acc.phone_number, acc.created_at.strftime('%Y.%m.%d %H:%M:%S'))
     if inactive_accounts:
         text = '\n<b>Inactive accounts</b>\n' \
                '<i>phone number</i>|<i>added at</i>|<i>error datetime</i>\n'
         for acc in inactive_accounts:
             text += '{}|{}|{}\n'.format(acc.phone_number,
-                                        acc.created_at.strftime('%Y.%m.%d %h:%M:%S'),
-                                        acc.error_time.strftime('%Y.%m.%d %h:%M:%S'))
+                                        acc.created_at.strftime('%Y.%m.%d %H:%M:%S'),
+                                        acc.error_time.strftime('%Y.%m.%d %H:%M:%S'))
     if text:
         update.message.reply_text(text, parse_mode=ParseMode.HTML)
     else:
