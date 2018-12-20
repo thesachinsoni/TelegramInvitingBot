@@ -526,13 +526,13 @@ def list_accounts(bot, update):
     inactive_accounts = [acc for acc in accounts if bool(acc.active) == False]
     text = ''
     if active_accounts:
-        text = '<b>Active accounts</b>\n' \
-               '<i>phone number</i>|<i>added at</i>\n'
+        text += '<b>Active accounts</b>\n' \
+                '<i>phone number</i>|<i>added at</i>\n'
         for acc in active_accounts:
             text += '{}|{}\n'.format(acc.phone_number, acc.created_at.strftime('%Y.%m.%d %H:%M:%S'))
     if inactive_accounts:
-        text = '\n<b>Inactive accounts</b>\n' \
-               '<i>phone number</i>|<i>added at</i>|<i>error datetime</i>\n'
+        text += '\n<b>Inactive accounts</b>\n' \
+                '<i>phone number</i>|<i>added at</i>|<i>error datetime</i>\n'
         for acc in inactive_accounts:
             text += '{}|{}|{}\n'.format(acc.phone_number,
                                         acc.created_at.strftime('%Y.%m.%d %H:%M:%S'),
