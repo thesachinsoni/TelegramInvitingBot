@@ -529,9 +529,9 @@ def list_accounts(bot, update):
         text += '<b>Active accounts</b>\n' \
                 '<i>phone number</i>|<i>added at</i>|<i>use for inviting</i>\n'
         for acc in active_accounts:
-            text += '{}|{}|\n'.format(acc.phone_number,
-                                      acc.created_at.strftime('%Y.%m.%d %H:%M:%S'),
-                                      '✔️' if acc.use_for_inviting else '❌')
+            text += '{}|{}|{}\n'.format(acc.phone_number,
+                                        acc.created_at.strftime('%Y.%m.%d %H:%M:%S'),
+                                        '✔️' if acc.use_for_inviting else '❌')
     if inactive_accounts:
         text += '\n<b>Inactive accounts</b>\n' \
                 '<i>phone number</i>|<i>added at</i>|<i>error datetime</i>\n'
