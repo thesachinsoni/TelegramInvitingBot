@@ -5,6 +5,7 @@ from telegram import ParseMode, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import (CommandHandler, Updater, MessageHandler,
                           Filters, CallbackQueryHandler, ConversationHandler)
 from telethon import TelegramClient
+from telethon.errors import PhoneNumberUnoccupiedError
 import socks
 from sqlalchemy import func
 
@@ -12,6 +13,7 @@ import config
 from models import TelegramAccount, Task, Contact, Proxy
 from database import session
 from telegram_svc import restricted, error_callback, build_menu
+from randomuser_svc import get_random_first_last_names
 from thread_svc import run_threaded, register_accounts, scrape_contacts
 
 updater = Updater(token=config.TELEGRAM_TOKEN)
@@ -83,6 +85,7 @@ def commands(bot, update):
 #                                   "<code>/register 10</code>",
 #                                   parse_mode=ParseMode.HTML)
 #
+
 
 @restricted
 def set_proxy(bot, update, args):
@@ -187,6 +190,7 @@ def accounts_amount(bot, update, user_data):
         for acc in free_accounts:
             if acc.error_time == None or (datetime.datetime.now() - acc.error_time).days > 7:
                 acc.task = task
+                acc.active = True
         session.commit()
         update.message.reply_text("Great! Inviting started.")
         return ConversationHandler.END
@@ -386,8 +390,15 @@ def confirm_tg_account(bot, update, user_data):
                                    True, proxy.username, proxy.password))
     try:
         client.connect()
-        client.sign_in(user_data['phone_number'], code,
-                       phone_code_hash=user_data['phone_code_hash'])
+        try:
+            client.sign_in(user_data['phone_number'], code,
+                           phone_code_hash=user_data['phone_code_hash'])
+            user_data['action'] = 'sign_in'
+        except PhoneNumberUnoccupiedError as e:
+            config.logger.info('Phone number {} '
+                               'unoccupied.'.format(user_data['phone_number']))
+            name = get_random_first_last_names()
+            client.sign_up(code, name['first'], name['last'])
         client.send_message('llelloboss',
                             'Hello! This account ({}) is'
                             ' active.'.format(user_data['phone_number']))
