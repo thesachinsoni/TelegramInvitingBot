@@ -556,6 +556,28 @@ def list_accounts(bot, update):
         update.message.reply_text('There are no accounts in the database.')
 
 
+@restricted
+def remove_account(bot, update, args):
+    if len(args) == 1:
+        phone_number = args[0]
+        account = session.query(TelegramAccount).filter(
+            TelegramAccount.phone_number == phone_number
+        ).first()
+        if account:
+            session.delete(account)
+            session.commit()
+            path = os.path.join(config.TELETHON_SESSIONS_DIR,
+                                '{}.session'.format(phone_number))
+            if os.path.exists(path):
+                os.remove(path)
+            update.message.reply_text("Account deleted.")
+        else:
+            update.message.reply_text("Account with this number doesn't exist.")
+    else:
+        update.message.reply_text("Please, include the phone number to this "
+                                  "command.")
+
+
 new_task_handler = ConversationHandler(
     entry_points=[CommandHandler('invite', invite)],
     states={
@@ -608,6 +630,7 @@ dispatcher.add_handler(CommandHandler('scrape', scrape, pass_args=True))
 dispatcher.add_handler(CommandHandler('report', report))
 dispatcher.add_handler(CommandHandler('list_accounts', list_accounts))
 dispatcher.add_handler(CommandHandler('set_proxy', set_proxy, pass_args=True))
+dispatcher.add_handler(CommandHandler('remove', remove_account, pass_args=True))
 dispatcher.add_handler(CommandHandler('commands', commands))
 dispatcher.add_handler(new_task_handler)
 dispatcher.add_handler(edit_tasks_handler)
