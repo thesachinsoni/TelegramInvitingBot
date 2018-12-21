@@ -61,6 +61,7 @@ def commands(bot, update):
            '/invite - start inviting users.\n' \
            '/tasks - control active inviting processes.\n' \
            '/add_account <code>[phone_number]</code> - add new Telegram account.\n' \
+           '/remove <code>[phone_number]</code> - remove Telegram account.\n' \
            '/report - get accounts info, groups and number of users, scrapped from them.\n' \
            '/custom_scrape <code>[phone_number]</code> - scrape group using specific account.\n' \
            '/set_proxy <code>[ip:port:username:password]</code> - set proxy for Telegram ' \
