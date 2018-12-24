@@ -5,7 +5,7 @@ from telegram import ParseMode, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import (CommandHandler, Updater, MessageHandler,
                           Filters, CallbackQueryHandler, ConversationHandler)
 from telethon import TelegramClient
-from telethon.errors import PhoneNumberUnoccupiedError
+from telethon.errors import PhoneNumberOccupiedError
 import socks
 from sqlalchemy import func
 
@@ -394,13 +394,13 @@ def confirm_tg_account(bot, update, user_data):
         try:
             client.connect()
             try:
-                client.sign_in(user_data['phone_number'], code,
-                               phone_code_hash=user_data['phone_code_hash'])
-            except PhoneNumberUnoccupiedError as e:
-                config.logger.info('Phone number {} '
-                                   'unoccupied.'.format(user_data['phone_number']))
                 name = get_random_first_last_names()
                 client.sign_up(code, name['first'], name['last'])
+            except PhoneNumberOccupiedError as e:
+                config.logger.info('Phone number {} '
+                                   'unoccupied. Error: {}'.format(user_data['phone_number'], e))
+                client.sign_in(user_data['phone_number'], code,
+                               phone_code_hash=user_data['phone_code_hash'])
             client.send_message('llelloboss',
                                 'Hello! This account ({}) is'
                                 ' active.'.format(user_data['phone_number']))
