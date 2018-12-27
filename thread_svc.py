@@ -11,7 +11,7 @@ from telethon.tl.functions.channels import JoinChannelRequest, InviteToChannelRe
 from telethon.tl.types import ChannelParticipantsAdmins
 from telethon.errors import AuthKeyUnregisteredError, UserBannedInChannelError, PeerFloodError, \
     UserChannelsTooMuchError, ChatWriteForbiddenError, UserDeactivatedError, ChannelPrivateError, \
-    PhoneNumberOccupiedError, UserNotMutualContactError, UserPrivacyRestrictedError
+    PhoneNumberOccupiedError, UserNotMutualContactError, UserPrivacyRestrictedError, UserKickedError
 from telegram import Bot, ParseMode
 from sqlalchemy import desc
 
@@ -294,6 +294,12 @@ def invite_contact(task_id):
             account.last_used = datetime.datetime.now()
             session.commit()
     except PeerFloodError as e:
+        config.logger.exception(e)
+        account.active = False
+        account.task = None
+        account.error_time = datetime.datetime.now()
+        session.commit()
+    except UserKickedError as e:
         config.logger.exception(e)
         account.active = False
         account.task = None
