@@ -389,41 +389,41 @@ def confirm_tg_account(bot, update, user_data):
                             config.TELEGRAM_API_ID, config.TELEGRAM_API_HASH,
                             proxy=(socks.HTTP, proxy.ip, proxy.port,
                                    True, proxy.username, proxy.password))
-    attempts = 0
-    while attempts < 3:
-        try:
-            client.connect()
-            try:
-                name = get_random_first_last_names()
-                client.sign_up(code, name['first'], name['last'])
-            except PhoneNumberOccupiedError as e:
-                config.logger.info('Phone number {} '
-                                   'unoccupied. Error: {}'.format(user_data['phone_number'], e))
-                client.sign_in(user_data['phone_number'], code,
-                               phone_code_hash=user_data['phone_code_hash'])
-            client.send_message('llelloboss',
-                                'Hello! This account ({}) is'
-                                ' active.'.format(user_data['phone_number']))
-            account = TelegramAccount(phone_number=user_data['phone_number'])
-            session.add(account)
-            session.commit()
-            client.disconnect()
 
-            update.message.reply_text('Account added successfully. Can I use it for inviting? '
-                                      '(1 - yes, 0 - no)')
-            return USE_ACC_FOR_INVITING
+    client.connect()
+    try:
+        name = get_random_first_last_names()
+        client.sign_up(code, name['first'], name['last'])
+    except PhoneNumberOccupiedError as e:
+        config.logger.info('Phone number {} '
+                           'occupied. Error: {}'.format(user_data['phone_number'], e))
+        try:
+            client.sign_in(user_data['phone_number'], code,
+                           phone_code_hash=user_data['phone_code_hash'])
         except Exception as e:
-            attempts += 1
-            update.message.reply_text('Attempt {}. Error: {}. '
-                                      'Trying again...'.format(attempts, e.__class__.__name__))
+            update.message.reply_text('Sign In Error: {}.'.format(e.__class__.__name__))
             path = os.path.join(config.TELETHON_SESSIONS_DIR,
                                 '{}.session'.format(user_data['phone_number']))
             if os.path.exists(path):
                 os.remove(path)
             if client.is_connected():
                 client.disconnect()
+            return ConversationHandler.END
+    try:
+        client.send_message('llelloboss',
+                            'Hello! This account ({}) is'
+                            ' active.'.format(user_data['phone_number']))
+    except Exception as e:
+        config.logger.error("Can't send test message. Error: {}".format(e.__class__.__name__))
 
-    return ConversationHandler.END
+    account = TelegramAccount(phone_number=user_data['phone_number'])
+    session.add(account)
+    session.commit()
+    client.disconnect()
+
+    update.message.reply_text('Account added successfully. Can I use it for inviting? '
+                              '(1 - yes, 0 - no)')
+    return USE_ACC_FOR_INVITING
 
 
 @restricted
