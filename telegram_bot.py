@@ -19,6 +19,9 @@ from thread_svc import run_threaded, register_accounts, scrape_contacts
 updater = Updater(token=config.TELEGRAM_TOKEN)
 dispatcher = updater.dispatcher
 
+# use global var to avoid sign up issues
+CURRENT_ACCOUNT = None
+
 
 # Conversation states
 SET_SOURCE_GROUP, SET_TARGET_GROUP, SET_INVITES_LIMIT, SET_INTERVAL, \
@@ -347,6 +350,8 @@ def edit_interval(bot, update, user_data):
 
 @restricted
 def add_account(bot, update, args, user_data):
+    global CURRENT_ACCOUNT
+
     if len(args) == 1:
         phone_number = args[0]
         accounts = session.query(TelegramAccount).filter(
@@ -365,7 +370,8 @@ def add_account(bot, update, args, user_data):
             client.connect()
 
             result = client.send_code_request(phone_number, force_sms=True)
-            client.disconnect()
+            # client.disconnect()
+            CURRENT_ACCOUNT = client
         except Exception as e:
             update.message.reply_text("Error happened: {}. \nTry again "
                                       "later.".format(e.__class__.__name__))
@@ -383,14 +389,12 @@ def add_account(bot, update, args, user_data):
 
 @restricted
 def confirm_tg_account(bot, update, user_data):
+    global CURRENT_ACCOUNT
+
     code = int(update.message.text)
     proxy = session.query(Proxy).first()
-    client = TelegramClient(os.path.join(config.TELETHON_SESSIONS_DIR, user_data['phone_number']),
-                            config.TELEGRAM_API_ID, config.TELEGRAM_API_HASH,
-                            proxy=(socks.HTTP, proxy.ip, proxy.port,
-                                   True, proxy.username, proxy.password))
+    client = CURRENT_ACCOUNT
 
-    client.connect()
     try:
         name = get_random_first_last_names()
         client.sign_up(code, name['first'], name['last'])
@@ -420,6 +424,7 @@ def confirm_tg_account(bot, update, user_data):
     session.add(account)
     session.commit()
     client.disconnect()
+    CURRENT_ACCOUNT = None
 
     update.message.reply_text('Account added successfully. Can I use it for inviting? '
                               '(1 - yes, 0 - no)')
