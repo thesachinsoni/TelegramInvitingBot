@@ -5,6 +5,7 @@ from telegram import ParseMode, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import (CommandHandler, Updater, MessageHandler,
                           Filters, CallbackQueryHandler, ConversationHandler)
 from telethon import TelegramClient
+from telethon.tl.functions.messages import DeleteMessagesRequest
 from telethon.errors import PhoneNumberOccupiedError
 import socks
 from sqlalchemy import func
@@ -419,6 +420,12 @@ def confirm_tg_account(bot, update, user_data):
                             ' active.'.format(user_data['phone_number']))
     except Exception as e:
         config.logger.error("Can't send test message. Error: {}".format(e.__class__.__name__))
+    try:
+        m = client.get_messages(777000)
+        client.invoke(DeleteMessagesRequest([m[0].id]))
+    except Exception as e:
+        config.logger.error("Can't delete last Telegram service message. "
+                            "Error: {}".format(e.__class__.__name__))
 
     account = TelegramAccount(phone_number=user_data['phone_number'])
     session.add(account)
