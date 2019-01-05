@@ -51,15 +51,17 @@ class Contact(Base):
     id = Column(Integer, primary_key=True)
     tg_id = Column(Integer)
     source_group = Column(String(300))
+    source_group_name = Column(String(500))
     created_at = Column(DateTime, default=datetime.datetime.now)
     username = Column(String(300))
     priority = Column(Integer)
     task_id = Column(Integer, ForeignKey('task.id'))
     task = relationship('Task', backref="invited_contacts")
 
-    def __init__(self, tg_id, source_group, username, priority):
+    def __init__(self, tg_id, source_group, source_group_name, username, priority):
         self.tg_id = tg_id
         self.source_group = source_group
+        self.source_group_name = source_group_name
         self.username = username
         self.priority = priority
 

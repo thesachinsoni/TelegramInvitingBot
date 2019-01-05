@@ -143,10 +143,8 @@ def scrape_contacts(group, phone_number=None):
                                 proxy=(socks.HTTP, proxy.ip, proxy.port,
                                        True, proxy.username, proxy.password))
         client.connect()
-        if isinstance(group, dict) and group['invite_link']:
-            group_link = group['invite_link']
-        elif isinstance(group, dict) and not group['invite_link']:
-            group_link = int(group['id'])
+        if isinstance(group, dict):
+            group_link = group['id']
         else:
             group_link = group.lower()
         account_id = client.get_me().id
@@ -164,8 +162,9 @@ def scrape_contacts(group, phone_number=None):
         client.disconnect()
         filtered_participants = [p for p in list(participants) if not p.bot and
                                  p.id not in admins_ids and
-                                 p.id != account_id]
+                                 p.id != account_id and p.username]
         contacts = [Contact(tg_id=user.id, source_group=group_link, username=user.username,
+                            source_group_name=group.title,
                             priority=Contact.PRIORITY_HIGH
                             if user.id in last_active_users_ids
                             else Contact.PRIORITY_LOW)
@@ -175,7 +174,7 @@ def scrape_contacts(group, phone_number=None):
         for adm in config.ADMIN_IDS:
             bot.send_message(adm, f'Scrapped {len(filtered_participants)} from {group.title}.\n'
                                   f'Skipped {abs(len(filtered_participants)-len(participants))} '
-                                  f'admins and bots.')
+                                  f'admins, bots and users without usernames.')
     except Exception as e:
         for adm in config.ADMIN_IDS:
             bot.send_message(adm, str(e))
@@ -271,25 +270,17 @@ def invite_contact(task_id):
                                    True, proxy.username, proxy.password))
     try:
         client.connect()
-        source_participants = client.get_participants(task.source_group,
-                                                      aggressive=True)
         target_participants = client.get_participants(task.target_group, aggressive=True)
-        if int(contacts[0].tg_id) not in [i.id for i in target_participants]:
+        target_participants_ids = [i.id for i in target_participants]
+        if int(contacts[0].tg_id) not in target_participants_ids:
             target = int(task.target_group) if task.target_group.startswith('-') \
                 else task.target_group.lower()
-            client(JoinChannelRequest(target))
-            contact = None
-            try:
-                contact = next((p for p in source_participants if p.id == contacts[0].tg_id))
-            except StopIteration:
-                error = InviteError(task=task, contact=contacts[0])
-                session.add(error)
-                session.commit()
-            if contact:
-                client(InviteToChannelRequest(target, [contact]))
-                task.invited_contacts.append(contacts[0])
-                account.last_used = datetime.datetime.now()
-                session.commit()
+            if int(client.get_me().id) not in target_participants_ids:
+                client(JoinChannelRequest(target))
+            client(InviteToChannelRequest(target, [contacts[0].username]))
+            task.invited_contacts.append(contacts[0])
+            account.last_used = datetime.datetime.now()
+            session.commit()
         else:
             error = InviteError(task=task, contact=contacts[0])
             session.add(error)
@@ -311,6 +302,10 @@ def invite_contact(task_id):
         config.logger.exception(e)
         session.delete(account)
         session.commit()
+        path = os.path.join(config.TELETHON_SESSIONS_DIR,
+                            '{}.session'.format(account.phone_number))
+        if os.path.exists(path):
+            os.remove(path)
         for adm in config.ADMIN_IDS:
             bot.send_message(adm,
                              f'Account {account.phone_number} had {e.__class__.__name__} '
@@ -322,4 +317,6 @@ def invite_contact(task_id):
         session.commit()
     except Exception as e:
         config.logger.exception(e)
-    client.disconnect()
+
+    if client.is_connected():
+        client.disconnect()
