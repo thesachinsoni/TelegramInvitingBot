@@ -1,11 +1,12 @@
 import os
 import datetime
+from collections import OrderedDict
 
 from telegram import ParseMode, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import (CommandHandler, Updater, MessageHandler,
                           Filters, CallbackQueryHandler, ConversationHandler)
 from telethon import TelegramClient
-from telethon.tl.functions.messages import DeleteHistoryRequest, ExportChatInviteRequest
+from telethon.tl.functions.messages import DeleteHistoryRequest
 from telethon.errors import PhoneNumberOccupiedError
 import socks
 from sqlalchemy import func
@@ -495,7 +496,7 @@ def custom_scrape(bot, update, args, user_data):
                 # except:
                 #     g['invite_link'] = None
                 groups.append(g)
-        user_data['groups'] = groups
+        user_data['groups'] = sorted(groups, key=lambda k: k['title'])
         if groups:
             buttons = [InlineKeyboardButton(g['title'], callback_data=g['id'])
                        for g in groups]
