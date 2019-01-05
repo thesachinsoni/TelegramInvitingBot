@@ -114,7 +114,7 @@ def register_accounts(limit):
                               f'Failed: {fails_count}')
 
 
-def scrape_contacts(group_link, phone_number=None):
+def scrape_contacts(group, phone_number=None):
     if phone_number is None:
         free_accounts = session.query(TelegramAccount).filter(
             TelegramAccount.active == True,
@@ -143,10 +143,12 @@ def scrape_contacts(group_link, phone_number=None):
                                 proxy=(socks.HTTP, proxy.ip, proxy.port,
                                        True, proxy.username, proxy.password))
         client.connect()
-        if group_link.startswith('-'):
-            group_link = int(group_link)
+        if isinstance(group, dict) and group['invite_link']:
+            group_link = group['invite_link']
+        elif isinstance(group, dict) and not group['invite_link']:
+            group_link = int(group['id'])
         else:
-            group_link = group_link.lower()
+            group_link = group.lower()
         account_id = client.get_me().id
         group = client.get_entity(group_link)
         participants = client.get_participants(group, aggressive=True)

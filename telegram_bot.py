@@ -5,7 +5,7 @@ from telegram import ParseMode, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import (CommandHandler, Updater, MessageHandler,
                           Filters, CallbackQueryHandler, ConversationHandler)
 from telethon import TelegramClient
-from telethon.tl.functions.messages import DeleteMessagesRequest
+from telethon.tl.functions.messages import DeleteHistoryRequest, ExportChatInviteRequest
 from telethon.errors import PhoneNumberOccupiedError
 import socks
 from sqlalchemy import func
@@ -421,8 +421,7 @@ def confirm_tg_account(bot, update, user_data):
     except Exception as e:
         config.logger.error("Can't send test message. Error: {}".format(e.__class__.__name__))
     try:
-        m = client.get_messages(777000)
-        client.invoke(DeleteMessagesRequest([m[0].id]))
+        client(DeleteHistoryRequest(peer=777000, max_id=0, just_clear=False))
     except Exception as e:
         config.logger.error("Can't delete last Telegram service message. "
                             "Error: {}".format(e.__class__.__name__))
@@ -475,8 +474,17 @@ def custom_scrape(bot, update, args, user_data):
             config.logger.exception(e)
             return ConversationHandler.END
         client.disconnect()
-        groups = [{'id': i.id, 'title': i.title}
-                  for i in dialogs if i.is_group]
+        groups = list()
+        for i in dialogs:
+            if i.is_group:
+                g = dict()
+                g['id'] = i.id
+                g['title'] = i.title
+                try:
+                    g['invite_link'] = client(ExportChatInviteRequest(i.id))
+                except:
+                    g['invite_link'] = None
+                groups.append(g)
         user_data['groups'] = groups
         if groups:
             buttons = [InlineKeyboardButton(g['title'], callback_data=g['id'])
@@ -541,7 +549,8 @@ def select_group_for_scrapping(bot, update, user_data):
                                       timeout=30)
         return SELECT_GROUP_FOR_SCRAPPING
     else:
-        run_threaded(scrape_contacts, (query.data, user_data['phone_number']))
+        group = next((i for i in user_data['groups'] if i.id == query.data))
+        run_threaded(scrape_contacts, (group, user_data['phone_number']))
         query.message.reply_text("Scrapping started. Please, wait.")
         return ConversationHandler.END
 
