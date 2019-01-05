@@ -61,7 +61,7 @@ def report(bot, update):
     text = '<b>SCRAPPED USERS:</b>\n'
     for i in data:
         text += '<code>{}</code> <i>{}</i>:  {}\n'.format(i['id'],
-                                                          i['title'] if i['title'] else '---',
+                                                          i['title'].source_group_name if i['title'] else '---',
                                                           i['count'])
     text += f'\nActive accounts: {len(active_accounts)}' \
             f'\nDisabled accounts: {len(banned_accounts)}'
