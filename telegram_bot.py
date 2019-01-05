@@ -45,14 +45,24 @@ def cancel(bot, update):
 @restricted
 def report(bot, update):
     groups_with_counts = session.query(
-        Contact.source_group, Contact.source_group_name, func.count(Contact.source_group)
+        Contact.source_group, func.count(Contact.source_group)
     ).group_by(Contact.source_group).all()
+    data = [
+        {
+            'id': g[0],
+            'count': g[1],
+            'title': session.query(Contact).filter(Contact.source_group==g[0]).first()
+        }
+        for g in groups_with_counts
+    ]
     accounts = session.query(TelegramAccount).all()
     active_accounts = [acc for acc in accounts if acc.active == True]
     banned_accounts = [acc for acc in accounts if acc.active == False]
     text = '<b>SCRAPPED USERS:</b>\n'
-    for i in groups_with_counts:
-        text += '<code>{}</code> <i>({})</i>:  {}\n'.format(i[0], i[1], i[2])
+    for i in data:
+        text += '<code>{}</code> <i>({})</i>:  {}\n'.format(i['id'],
+                                                            i['title'] if i['title'] else '---',
+                                                            i['count'])
     text += f'\nActive accounts: {len(active_accounts)}' \
             f'\nDisabled accounts: {len(banned_accounts)}'
     update.message.reply_text(text, parse_mode=ParseMode.HTML)
