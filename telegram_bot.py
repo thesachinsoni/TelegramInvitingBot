@@ -60,9 +60,9 @@ def report(bot, update):
     banned_accounts = [acc for acc in accounts if acc.active == False]
     text = '<b>SCRAPPED USERS:</b>\n'
     for i in data:
-        text += '<code>{}</code> <i>({})</i>:  {}\n'.format(i['id'],
-                                                            i['title'] if i['title'] else '---',
-                                                            i['count'])
+        text += '<code>{}</code> <i>{}</i>:  {}\n'.format(i['id'],
+                                                          i['title'] if i['title'] else '---',
+                                                          i['count'])
     text += f'\nActive accounts: {len(active_accounts)}' \
             f'\nDisabled accounts: {len(banned_accounts)}'
     update.message.reply_text(text, parse_mode=ParseMode.HTML)
