@@ -51,7 +51,7 @@ def report(bot, update):
         {
             'id': g[0],
             'count': g[1],
-            'title': session.query(Contact).filter(Contact.source_group==g[0]).first()
+            'title': session.query(Contact).filter(Contact.source_group==g[0]).first().source_group_name
         }
         for g in groups_with_counts
     ]
@@ -61,7 +61,7 @@ def report(bot, update):
     text = '<b>SCRAPPED USERS:</b>\n'
     for i in data:
         text += '<code>{}</code> <i>{}</i>:  {}\n'.format(i['id'],
-                                                          i['title'].source_group_name if i['title'] else '---',
+                                                          i['title'] if i['title'] else '---',
                                                           i['count'])
     text += f'\nActive accounts: {len(active_accounts)}' \
             f'\nDisabled accounts: {len(banned_accounts)}'
