@@ -143,8 +143,8 @@ def scrape_contacts(group, phone_number=None):
                                 proxy=(socks.HTTP, proxy.ip, proxy.port,
                                        True, proxy.username, proxy.password))
         client.connect()
-        if isinstance(group, dict):
-            group_link = group['id']
+        if isinstance(group, int):
+            group_link = group
         else:
             group_link = group.lower()
         account_id = client.get_me().id

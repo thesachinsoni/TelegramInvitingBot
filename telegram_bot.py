@@ -560,8 +560,8 @@ def select_group_for_scrapping(bot, update, user_data):
                                       timeout=30)
         return SELECT_GROUP_FOR_SCRAPPING
     else:
-        group = next((i for i in user_data['groups'] if i['id'] == query.data))
-        run_threaded(scrape_contacts, (group, user_data['phone_number']))
+        # group = next((i for i in user_data['groups'] if i['id'] == query.data))
+        run_threaded(scrape_contacts, (int(query.data), user_data['phone_number']))
         query.message.reply_text("Scrapping started. Please, wait.")
         return ConversationHandler.END
 
